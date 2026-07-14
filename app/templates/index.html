@@ -5,18 +5,78 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="description" content="GitHub-to-Devin automation dashboard">
     <title>Devin automation dashboard</title>
+    <link rel="stylesheet" href="https://unpkg.com/@knadh/oat@0.6.0/oat.min.css">
+    <style>
+      .spinner {
+        display: inline-block;
+        width: 0.75em;
+        height: 0.75em;
+        margin-right: 0.35em;
+        border: 2px solid currentColor;
+        border-right-color: transparent;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+      }
+
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+    </style>
+    <script src="{{ url_for('static', path='/dashboard.js') }}" defer></script>
   </head>
   <body>
-    <header>
-      <h1>Devin automation dashboard</h1>
-      <nav aria-label="Application">
-        <a href="/api/docs">API documentation</a>
-      </nav>
-    </header>
+    <main class="container">
+      <section class="mb-6" aria-labelledby="metrics-heading">
+        <header class="hstack justify-between mb-4">
+          <h1 id="metrics-heading">Overview</h1>
+          <label>
+            <input id="live-mode" type="checkbox" role="switch" checked>
+            Live mode
+          </label>
+        </header>
+        <div class="row" aria-live="polite">
+          <article class="card col-4">
+            <h3>Completed</h3>
+            <p><strong id="metric-completed">0</strong></p>
+          </article>
+          <article class="card col-4">
+            <h3>In progress</h3>
+            <p><strong id="metric-in-progress">0</strong></p>
+          </article>
+          <article class="card col-4">
+            <h3>Failed</h3>
+            <p><strong id="metric-failed">0</strong></p>
+          </article>
+        </div>
+      </section>
 
-    <main>
-      <h2>Workflow runs</h2>
-      <p>Webhook and manual runs will appear here as workflows execute.</p>
+      <section class="mt-6" aria-labelledby="runs-heading">
+        <header class="mb-4">
+          <h2 id="runs-heading">Workflow runs</h2>
+        </header>
+        <div id="dashboard-message"></div>
+        <div class="responsive-table">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">Source</th>
+                <th scope="col">Subject</th>
+                <th scope="col">Workflow</th>
+                <th scope="col">Status</th>
+                <th scope="col">Created</th>
+                <th scope="col">Session</th>
+              </tr>
+            </thead>
+            <tbody id="runs-body">
+              <tr>
+                <td colspan="6">No workflow runs yet.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
     </main>
   </body>
 </html>

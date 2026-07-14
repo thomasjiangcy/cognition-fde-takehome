@@ -76,9 +76,22 @@ async def test_startup_and_health(migrated_database_url: str) -> None:
         ) as client:
             response = await client.get("/api/health")
             dashboard = await client.get("/")
+            dashboard_data = await client.get("/api/dashboard")
 
     assert methods == ["GET", "POST"]
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
     assert dashboard.status_code == 200
     assert "Devin automation dashboard" in dashboard.text
+    assert "@knadh/oat@0.6.0" in dashboard.text
+    assert 'id="live-mode"' in dashboard.text
+    assert "refresh-dashboard" not in dashboard.text
+    assert "Updated" not in dashboard.text
+    assert "API documentation" not in dashboard.text
+    assert dashboard_data.status_code == 200
+    assert dashboard_data.json()["metrics"] == {
+        "completed": 0,
+        "in_progress": 0,
+        "failed": 0,
+    }
+    assert dashboard_data.json()["runs"] == []

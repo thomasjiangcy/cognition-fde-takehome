@@ -8,6 +8,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
+from app.automation.dashboard import DashboardService, DashboardSnapshot
 from app.config import (
     DatabaseSettings,
     DevinSettings,
@@ -29,6 +30,7 @@ from app.workflows.bug_investigation import (
 from app.workflows.dispatcher import WorkflowDispatcher
 
 APP_DIR = Path(__file__).resolve().parent
+dashboard_service = DashboardService()
 observability: Observability | None = None
 
 
@@ -56,11 +58,13 @@ async def lifespan(
             api_key=resolved_devin_settings.devin_api_key,
             transport=devin_transport,
         ) as client:
+            sessions = DevinSessions(client, resolved_devin_settings.devin_org_id)
+            dashboard_service.configure(database, sessions)
             dispatcher.configure(
                 database,
                 [
                     BugInvestigationWorkflow(
-                        DevinSessions(client, resolved_devin_settings.devin_org_id),
+                        sessions,
                         resources.playbook_ids[BUG_INVESTIGATION_PLAYBOOK.macro],
                     )
                 ],
@@ -93,6 +97,11 @@ templates = Jinja2Templates(directory=APP_DIR / "templates")
 @app.get("/", response_class=HTMLResponse, include_in_schema=False)
 async def dashboard(request: Request) -> HTMLResponse:
     return templates.TemplateResponse(request=request, name="index.html")
+
+
+@app.get("/api/dashboard", tags=["dashboard"])
+async def dashboard_data() -> DashboardSnapshot:
+    return await dashboard_service.snapshot()
 
 
 @app.get("/api/health", tags=["system"])

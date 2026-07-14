@@ -94,6 +94,26 @@ class AutomationRepository:
             )
         )
 
+    async def update_devin_status(
+        self,
+        run_id: UUID,
+        *,
+        state: WorkflowRunState,
+        status: str,
+        status_detail: str | None,
+    ) -> None:
+        await self._session.execute(
+            update(WorkflowRun)
+            .where(WorkflowRun.id == run_id)
+            .values(
+                state=state,
+                devin_status=status,
+                devin_status_detail=status_detail,
+                last_status_sync_at=func.now(),
+                updated_at=func.now(),
+            )
+        )
+
     async def mark_failed(self, run_id: UUID, reason: str) -> None:
         await self._session.execute(
             update(WorkflowRun)
