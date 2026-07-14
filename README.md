@@ -1,7 +1,7 @@
 # GitHub to Devin automation service
 
-A small FastAPI application for scheduled and manually triggered
-GitHub-to-Devin workflows. FastAPI serves both the API and a basic
+A small FastAPI application for webhook-driven, scheduled, and manually
+triggered GitHub-to-Devin workflows. FastAPI serves both the API and a basic
 server-rendered dashboard, while APScheduler provides an in-memory scheduling
 primitive for the automation logic that will be added later.
 
@@ -18,8 +18,15 @@ mise install
 uv sync
 ```
 
-The existing `.env` file is intentionally ignored by Git and is not needed by
-the current scaffold.
+Copy `sample.env` to `.env` and fill in the values needed for the workflow:
+
+```shell
+cp sample.env .env
+```
+
+The `.env` file is intentionally ignored by both Git and the Docker build
+context. `GITHUB_WEBHOOK_SECRET` should contain the same high-entropy secret
+configured on the repository webhook.
 
 ## Run locally
 
@@ -57,6 +64,36 @@ Stop and remove the container with:
 
 ```shell
 docker rm -f github-devin-automation
+```
+
+## Run with a public development URL
+
+Docker Compose starts the application and a Cloudflare Quick Tunnel together:
+
+```shell
+docker compose up -d --build
+```
+
+Find the generated public URL in the tunnel logs:
+
+```shell
+docker compose logs tunnel
+```
+
+Look for an `https://<random-name>.trycloudflare.com` URL. The planned GitHub
+webhook URL will be:
+
+```text
+https://<random-name>.trycloudflare.com/api/webhooks/github
+```
+
+Quick Tunnel hostnames are temporary and intended for development and demos.
+They normally change when the tunnel is recreated.
+
+Stop both services with:
+
+```shell
+docker compose down
 ```
 
 ## Test

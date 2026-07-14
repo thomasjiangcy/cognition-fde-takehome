@@ -1,0 +1,20 @@
+name: github-devin-automation
+
+services:
+  app:
+    build: .
+    environment:
+      DEVIN_API_KEY: ${DEVIN_API_KEY:-}
+      DEVIN_ORG_ID: ${DEVIN_ORG_ID:-}
+      GITHUB_WEBHOOK_SECRET: ${GITHUB_WEBHOOK_SECRET:-}
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+
+  tunnel:
+    image: cloudflare/cloudflared:2026.7.1
+    command: tunnel --no-autoupdate --url http://app:8080
+    depends_on:
+      app:
+        condition: service_healthy
+    restart: unless-stopped

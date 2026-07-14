@@ -28,7 +28,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 app = FastAPI(
     title="GitHub to Devin Automation Service",
-    description="Runs scheduled and manually triggered GitHub-to-Devin workflows.",
+    description="Runs webhook-driven, scheduled, and manual GitHub-to-Devin workflows.",
     version="0.1.0",
     docs_url="/api/docs",
     openapi_url="/api/openapi.json",
