@@ -124,13 +124,19 @@ opened issues through the public Cloudflare URL to the local FastAPI service.
 
 ### 1. Configure the environment
 
-Copy `sample.env` to `.env`, then set at least these GitHub values:
+Copy `sample.env` to `.env`, then configure all values required by the demo:
 
 ```dotenv
+DEVIN_ORG_ID=<Devin organization ID beginning with org->
+DEVIN_API_KEY=<Devin API key beginning with cog_>
 GITHUB_REPOSITORY=thomasjiangcy/superset
 GITHUB_TOKEN=<fine-grained token with Issues write permission>
 GITHUB_WEBHOOK_SECRET=<high-entropy webhook secret>
 ```
+
+`DEVIN_ORG_ID` and `DEVIN_API_KEY` authorize application-managed Devin
+resources and investigation sessions. The current webhook-receipt milestone
+does not call Devin yet, but both values are required for the complete scenario.
 
 `GITHUB_REPOSITORY` is the fork that will receive the seeded issue.
 `GITHUB_TOKEN` needs Issues write permission for that repository. Generate a
