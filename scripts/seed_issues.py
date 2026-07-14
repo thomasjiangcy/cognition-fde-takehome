@@ -145,6 +145,11 @@ BUG_INVESTIGATION_REPO_LABELS: tuple[SeedLabel, ...] = (
         color="ededed",
         description="Bugs that cannot be reproduced",
     ),
+    SeedLabel(
+        name="devin:assigned",
+        color="0E8A16",
+        description="A Devin session has been assigned to handle this issue",
+    ),
 )
 
 SEED_CATALOG: dict[str, SeedIssue] = {
