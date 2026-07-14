@@ -5,8 +5,8 @@ import httpx
 import pytest
 from pydantic import SecretStr
 
+from app.seeds import SEED_CATALOG
 from scripts.seed_issues import (
-    SEED_CATALOG,
     CreateIssueRequest,
     CreateLabelRequest,
     GitHubCliClient,

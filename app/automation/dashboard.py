@@ -14,6 +14,7 @@ from app.devin.models import DevinSession, DevinSessionStatus, DevinSessionStatu
 from app.devin.sessions import DevinSessions
 from app.github.client import GitHubClient
 from app.github.models import GitHubLabelDefinition
+from app.seeds import SEED_CATALOG
 from app.webhooks.github.models import (
     GitHubDelivery,
     GitHubIssuesPayload,
@@ -21,7 +22,6 @@ from app.webhooks.github.models import (
     GitHubUser,
 )
 from app.workflows.dispatcher import WorkflowDispatcher, WorkflowResult
-from scripts.seed_issues import SEED_CATALOG
 
 logger = logging.getLogger(__name__)
 MAX_CONCURRENT_SESSION_REFRESHES = 8
