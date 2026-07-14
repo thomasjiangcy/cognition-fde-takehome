@@ -469,8 +469,8 @@ def parse_arguments(argv: Sequence[str] | None = None) -> CliArguments:
         "issue",
         nargs="?",
         default=None,
-        choices=tuple(SEED_CATALOG),
-        help="Seed issue to create. Use --all to seed every issue.",
+        choices=tuple(SEED_CATALOG) + ("all",),
+        help="Seed issue to create, or 'all' to seed every issue.",
     )
     parser.add_argument(
         "--all",
@@ -488,7 +488,7 @@ def parse_arguments(argv: Sequence[str] | None = None) -> CliArguments:
         help="Preview the payload without contacting GitHub.",
     )
     namespace = parser.parse_args(argv, namespace=CliNamespace())
-    if namespace.all:
+    if namespace.issue == "all" or namespace.all:
         issues = tuple(SEED_CATALOG.values())
     elif namespace.issue is None:
         parser.error("issue is required unless --all is used")

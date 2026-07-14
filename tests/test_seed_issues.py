@@ -191,3 +191,12 @@ def test_parse_arguments_selects_all_issues() -> None:
         "apache-superset-39007",
         "apache-superset-40708",
     }
+
+
+def test_parse_arguments_all_positional_is_synonym_for_flag() -> None:
+    arguments = parse_arguments(
+        ["all", "--repo", "thomasjiangcy/superset"],
+    )
+
+    assert arguments.repository.full_name == "thomasjiangcy/superset"
+    assert len(arguments.issues) == len(SEED_CATALOG)
