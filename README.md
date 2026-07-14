@@ -2,14 +2,12 @@
 
 A small FastAPI application for webhook-driven, scheduled, and manually
 triggered GitHub-to-Devin workflows. FastAPI serves both the API and a basic
-server-rendered dashboard, while APScheduler provides an in-memory scheduling
-primitive for the automation logic that will be added later.
+server-rendered dashboard, while APScheduler provides in-process scheduling.
 
 At startup, the application runs a resource initialization hook before starting
 the scheduler. Registered Devin playbooks are reconciled by unique macro: the
 initializer creates missing playbooks, updates changed playbooks, and leaves
-matching playbooks untouched. No playbooks are registered yet, so the current
-scaffold does not contact Devin during startup.
+matching playbooks untouched.
 
 ## Setup
 
@@ -36,8 +34,7 @@ configured on the repository webhook.
 - `app/webhooks/github` owns GitHub webhook transport, verification, and
   normalized deliveries.
 - `app/workflows` selects and runs zero or more workflows for each delivery.
-- `app/devin` is the first-class home for Devin clients, resources, and
-  sessions.
+- `app/devin` owns Devin API clients and managed resources.
 - `playbooks` contains Markdown bodies for application-managed Devin playbooks.
 - `app/initialization.py` is the startup boundary for idempotent Devin resource
   setup.
@@ -111,10 +108,18 @@ docker compose -f compose.yaml down
 
 ## Test
 
-The project uses pytest, including AnyIO support for async application tests:
+The default pytest suite is hermetic and includes AnyIO support for asynchronous
+application tests:
 
 ```shell
 mise exec -- uv run pytest
+```
+
+Opt-in live integration tests use the configured `.env` credentials and create
+isolated resources in Devin. Each test removes the playbooks it creates:
+
+```shell
+mise exec -- uv run pytest -m live tests/integration
 ```
 
 ## Demo
@@ -134,11 +139,10 @@ GITHUB_TOKEN=<fine-grained token with Issues write permission>
 GITHUB_WEBHOOK_SECRET=<high-entropy webhook secret>
 ```
 
-`DEVIN_ORG_ID` and `DEVIN_API_KEY` authorize application-managed Devin
-resources and investigation sessions. The current webhook-receipt milestone
-does not call Devin yet, but both values are required for the complete scenario.
-
-`GITHUB_REPOSITORY` is the fork that will receive the seeded issue.
+`DEVIN_ORG_ID` and `DEVIN_API_KEY` authorize access to the organization's Devin
+resources. The service user needs the `ManageAccountPlaybooks` permission for
+startup reconciliation. `GITHUB_REPOSITORY` is the fork that will receive the
+seeded issue.
 `GITHUB_TOKEN` needs Issues write permission for that repository. Generate a
 webhook secret if needed:
 
@@ -222,7 +226,7 @@ docker compose logs --follow app tunnel
 Cloudflare Quick Tunnel hostnames are temporary. If the tunnel is recreated,
 update the webhook's Payload URL before testing again.
 
-### 4. Run scenario 1: investigate an unvalidated bug report
+### 4. Route an unvalidated bug report
 
 This scenario starts with
 [apache/superset#39007](https://github.com/apache/superset/issues/39007), an
@@ -242,20 +246,9 @@ mise exec -- uv run scripts/seed_issues.py mixed-chart-matrixify
 ```
 
 The corresponding `issues` delivery should show response status `202`, action
-`opened`, and status `received`. The complete intended scenario is:
-
-1. The seed script creates the issue in the fork.
-2. GitHub sends an `issues` webhook with the `opened` action.
-3. The application verifies and parses the delivery, then identifies the issue
-   as an unvalidated bug report.
-4. The bug-investigation workflow starts a Devin session with the issue and
-   repository context.
-5. Devin investigates the report, attempts to reproduce it, and returns
-   evidence that can be reviewed before implementation begins.
-
-Issue seeding plus authenticated webhook receipt and parsing are implemented.
-Bug-report classification, workflow routing, and the Devin investigation
-handoff will be added next.
+`opened`, and status `received`. The application verifies and parses the
+delivery, then routes issues containing `### Bug description` to the
+bug-investigation workflow for background execution.
 
 The script creates the upstream `validation:required` label if necessary and
 copies the upstream issue title and body exactly. It will not create another
