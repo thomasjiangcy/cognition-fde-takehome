@@ -107,8 +107,13 @@ with the managed playbook and issue context for each issue containing
 `### Bug description`.
 
 Once an issue has been investigated and labeled `validation:validated`, click
-**Run bug-fix job** to launch a Devin session that fixes the bug and opens a
-pull request.
+**Run bug-fix job** on the dashboard, or run the equivalent curl command:
+
+```shell
+curl -X POST http://127.0.0.1:8080/api/jobs/bug-fix
+```
+
+This launches a Devin session that fixes the bug and opens a pull request.
 
 ## Structure
 
