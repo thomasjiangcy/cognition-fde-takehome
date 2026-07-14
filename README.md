@@ -1,52 +1,43 @@
 # GitHub to Devin automation service
 
-A FastAPI service for scheduled and manually triggered GitHub-to-Devin
-workflows, with a React and Vite frontend for reporting. The automation logic
-will be added as its requirements are defined.
+A small FastAPI application for scheduled and manually triggered
+GitHub-to-Devin workflows. FastAPI serves both the API and a basic
+server-rendered dashboard, while APScheduler provides an in-memory scheduling
+primitive for the automation logic that will be added later.
 
 ## Setup
 
-Install the configured tools, then install the backend and frontend dependencies:
+Install the configured Python and `uv` versions, then install dependencies:
 
 ```shell
 mise install
 uv sync
-pnpm --dir frontend install
 ```
 
 The existing `.env` file is intentionally ignored by Git and is not needed by
-the health-check scaffold.
+the current scaffold.
 
 ## Run locally
 
-Start the API:
-
 ```shell
-uv run uvicorn api.main:app --reload
+uv run uvicorn app.main:app --reload
 ```
 
-The API is available at <http://127.0.0.1:8000>. Useful endpoints:
+The application is available at <http://127.0.0.1:8000>. Useful endpoints:
 
-- `GET /health`
-- `GET /docs`
-
-In a second terminal, start the frontend:
-
-```shell
-pnpm --dir frontend dev
-```
-
-The dashboard is available at <http://127.0.0.1:5173>.
+- Dashboard: `GET /`
+- Health check: `GET /api/health`
+- API documentation: `GET /api/docs`
 
 ## Run with Docker
 
-Build the single-container image:
+Build the image:
 
 ```shell
 docker build -t github-devin-automation .
 ```
 
-Run the frontend and API together:
+Run the application:
 
 ```shell
 docker run -d \
@@ -56,11 +47,7 @@ docker run -d \
   github-devin-automation
 ```
 
-The application is available at <http://127.0.0.1:8080>, with the API exposed
-under `/api`. Useful container endpoints:
-
-- `GET /api/health`
-- `GET /api/docs`
+The application is available at <http://127.0.0.1:8080>.
 
 Stop and remove the container with:
 
@@ -72,5 +59,4 @@ docker rm -f github-devin-automation
 
 ```shell
 uv run pytest
-pnpm --dir frontend build
 ```

@@ -1,5 +1,3 @@
 [tools]
-node = "24"
-pnpm = "latest"
 python = "3.12"
 uv = "latest"
