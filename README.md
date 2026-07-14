@@ -11,11 +11,12 @@ blueprint and playbook setup.
 
 ## Setup
 
-Install the configured Python and `uv` versions, then install dependencies:
+Install the configured tools and Python dependencies, then enable the Git hooks:
 
 ```shell
 mise install
 uv sync
+lefthook install
 ```
 
 Copy `sample.env` to `.env` and fill in the values needed for the workflow:
@@ -128,4 +129,18 @@ Run formatting, linting, and type-checking verification:
 uv run ruff format --check .
 uv run ruff check .
 uv run ty check
+```
+
+## Git hooks
+
+Lefthook runs Ruff's safe fixes and formatter on staged Python files before
+each commit, then stages the resulting files. Before each push, it runs the
+Ruff checks, type checker, and test suite in parallel.
+
+Because auto-fixing stages the complete affected file, avoid partially staging
+Python files when committing. Run the hooks manually across the repository with:
+
+```shell
+lefthook run pre-commit --all-files --no-stage-fixed
+lefthook run pre-push --force
 ```

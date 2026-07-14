@@ -1,0 +1,34 @@
+pre-commit:
+  jobs:
+    - name: uv lockfile
+      glob: "{pyproject.toml,uv.lock}"
+      run: mise exec -- uv lock --check
+
+    - name: Python auto-fix
+      group:
+        piped: true
+        jobs:
+          - name: Ruff lint
+            glob: "*.py"
+            run: mise exec -- uv run --frozen ruff check --fix {staged_files}
+            stage_fixed: true
+
+          - name: Ruff format
+            glob: "*.py"
+            run: mise exec -- uv run --frozen ruff format {staged_files}
+            stage_fixed: true
+
+pre-push:
+  parallel: true
+  jobs:
+    - name: Ruff lint
+      run: mise exec -- uv run --frozen ruff check .
+
+    - name: Ruff format
+      run: mise exec -- uv run --frozen ruff format --check .
+
+    - name: Type check
+      run: mise exec -- uv run --frozen ty check
+
+    - name: Tests
+      run: mise exec -- uv run --frozen pytest
