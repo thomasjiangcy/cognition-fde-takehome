@@ -1,5 +1,6 @@
 import hashlib
 import hmac
+import logging
 
 import pytest
 from fastapi import FastAPI
@@ -12,6 +13,8 @@ from app.webhooks.github.security import (
     GitHubWebhookVerifier,
     InvalidGitHubSignatureError,
 )
+from app.workflows.dispatcher import WorkflowDispatcher
+from app.workflows.initial_workflow import BugInvestigationWorkflow
 
 # These requests simulate only GitHub's external webhook boundary. Header and
 # payload fields follow GitHub's official contracts:
@@ -28,7 +31,7 @@ ISSUES_OPENED_PAYLOAD = b"""{
     "id": 1347,
     "number": 1347,
     "title": "Mixed Chart matrixify does not apply to Query B",
-    "body": "The dimension only applies to Query A.",
+    "body": "### Bug description\\n\\nThe dimension only applies to Query A.",
     "state": "open",
     "html_url": "https://github.com/octocat/Hello-World/issues/1347",
     "user": {"id": 1, "login": "octocat"},
@@ -91,12 +94,16 @@ def _webhook_app(secret: str | None = WEBHOOK_SECRET) -> FastAPI:
     settings = GitHubWebhookSettings(
         github_webhook_secret=SecretStr(secret) if secret is not None else None,
     )
-    app.include_router(create_github_webhook_router(settings))
+    dispatcher = WorkflowDispatcher([BugInvestigationWorkflow()])
+    app.include_router(create_github_webhook_router(settings, dispatcher))
     return app
 
 
 @pytest.mark.anyio
-async def test_receives_verified_issues_delivery() -> None:
+async def test_receives_verified_issues_delivery(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    caplog.set_level(logging.INFO, logger="app.workflows.dispatcher")
     transport = ASGITransport(app=_webhook_app())
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         response = await client.post(
@@ -113,6 +120,11 @@ async def test_receives_verified_issues_delivery() -> None:
         "repository": "octocat/Hello-World",
         "status": "received",
     }
+    assert (
+        "app.workflows.dispatcher",
+        logging.INFO,
+        "Executing workflow",
+    ) in caplog.record_tuples
 
 
 @pytest.mark.anyio

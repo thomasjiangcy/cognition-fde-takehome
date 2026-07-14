@@ -1,7 +1,7 @@
 import logging
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Header, HTTPException, Request, status
+from fastapi import APIRouter, BackgroundTasks, Header, HTTPException, Request, status
 from pydantic import BaseModel, ConfigDict, ValidationError
 
 from app.config import GitHubWebhookSettings
@@ -13,6 +13,7 @@ from app.webhooks.github.security import (
     GitHubWebhookVerifier,
     InvalidGitHubSignatureError,
 )
+from app.workflows.dispatcher import WorkflowDispatcher
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +32,7 @@ class GitHubWebhookAcknowledgement(BaseModel):
 
 def create_github_webhook_router(
     settings: GitHubWebhookSettings,
+    dispatcher: WorkflowDispatcher,
 ) -> APIRouter:
     router = APIRouter(prefix="/api/webhooks/github", tags=["github-webhooks"])
     secret = settings.github_webhook_secret
@@ -47,6 +49,7 @@ def create_github_webhook_router(
     )
     async def receive_github_webhook(
         request: Request,
+        background_tasks: BackgroundTasks,
         signature: Annotated[
             str | None,
             Header(alias="X-Hub-Signature-256"),
@@ -121,6 +124,9 @@ def create_github_webhook_router(
                 "github_delivery_status": delivery_status,
             },
         )
+        # This in-process handoff is intentionally non-durable for the current service.
+        # Use durable execution in production so accepted deliveries survive termination.
+        background_tasks.add_task(dispatcher.dispatch, delivery)
         return GitHubWebhookAcknowledgement(
             delivery_id=delivery.delivery_id,
             event=delivery.event,
