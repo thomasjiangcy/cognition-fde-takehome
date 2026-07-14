@@ -4,6 +4,8 @@
 
 - Use mise only to install and select repository tools.
 - Use uv for Python dependency management and command execution.
+- Pin every direct runtime and development dependency to an exact version in
+  `pyproject.toml`.
 - Keep `uv.lock` committed and synchronized with `pyproject.toml`.
 - Never read, print, commit, or copy values from `.env`. Document variables with
   empty values in `sample.env`.
