@@ -30,6 +30,19 @@ class GitHubSettings(BaseSettings):
     github_token: SecretStr = Field(min_length=1)
 
 
+class SeedTargetSettings(BaseSettings):
+    """Default GitHub repository targeted by the local demo seeder."""
+
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+        strict=True,
+    )
+
+    github_repository: str = Field(min_length=3)
+
+
 class Repository(BaseModel):
     """Validated GitHub owner and repository name."""
 
@@ -170,7 +183,7 @@ class GitHubClient:
         while True:
             response = await self._http.get(
                 f"repos/{repository.full_name}/issues",
-                params={"state": "all", "per_page": 100, "page": page},
+                params={"state": "open", "per_page": 100, "page": page},
             )
             response.raise_for_status()
             batch = TypeAdapter(list[GitHubIssue]).validate_json(
@@ -262,16 +275,16 @@ async def seed_issue(
 
 
 class CliNamespace(argparse.Namespace):
-    repository: str
+    repository: str | None
     issue: str
-    apply: bool
+    dry_run: bool
 
 
 @dataclass(frozen=True)
 class CliArguments:
     repository: Repository
     issue: SeedIssue
-    apply: bool
+    dry_run: bool
 
 
 def parse_arguments(argv: Sequence[str] | None = None) -> CliArguments:
@@ -279,31 +292,32 @@ def parse_arguments(argv: Sequence[str] | None = None) -> CliArguments:
         description="Seed a fork with a reproducible demonstration issue.",
     )
     parser.add_argument(
-        "--repo",
-        dest="repository",
-        required=True,
-        help="Target repository in OWNER/REPOSITORY format.",
-    )
-    parser.add_argument(
-        "--issue",
-        required=True,
+        "issue",
         choices=tuple(SEED_CATALOG),
         help="Seed issue to create.",
     )
     parser.add_argument(
-        "--apply",
+        "--repo",
+        dest="repository",
+        help="Override GITHUB_REPOSITORY with an OWNER/REPOSITORY target.",
+    )
+    parser.add_argument(
+        "--dry-run",
         action="store_true",
-        help="Create the issue. Without this flag, only preview the payload.",
+        help="Preview the payload without contacting GitHub.",
     )
     namespace = parser.parse_args(argv, namespace=CliNamespace())
+    repository_value = namespace.repository
+    if repository_value is None:
+        repository_value = SeedTargetSettings().github_repository
     try:
-        repository = Repository.parse(namespace.repository)
+        repository = Repository.parse(repository_value)
     except ValueError as error:
         parser.error(str(error))
     return CliArguments(
         repository=repository,
         issue=SEED_CATALOG[namespace.issue],
-        apply=namespace.apply,
+        dry_run=namespace.dry_run,
     )
 
 
@@ -325,7 +339,7 @@ async def apply_seed(arguments: CliArguments) -> SeedResult:
 
 def main(argv: Sequence[str] | None = None) -> int:
     arguments = parse_arguments(argv)
-    if not arguments.apply:
+    if arguments.dry_run:
         print_preview(arguments)
         return 0
 

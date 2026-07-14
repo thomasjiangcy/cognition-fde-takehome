@@ -26,6 +26,7 @@ async def test_seed_creates_missing_label_and_issue() -> None:
     def github_handler(request: httpx.Request) -> httpx.Response:
         requested_paths.append(request.url.path)
         if request.method == "GET" and request.url.path.endswith("/issues"):
+            assert request.url.params["state"] == "open"
             return httpx.Response(200, json=[])
         if request.method == "GET" and "/labels/" in request.url.path:
             return httpx.Response(404, json={"message": "Not Found"})
@@ -76,7 +77,7 @@ async def test_seed_creates_missing_label_and_issue() -> None:
 
 
 @pytest.mark.anyio
-async def test_seed_reuses_closed_issue_with_matching_marker() -> None:
+async def test_seed_reuses_open_issue_with_matching_marker() -> None:
     seed = SEED_CATALOG["mixed-chart-matrixify"]
     request_count = 0
 

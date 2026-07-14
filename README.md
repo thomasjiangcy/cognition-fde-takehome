@@ -117,31 +117,58 @@ The project uses pytest, including AnyIO support for async application tests:
 uv run pytest
 ```
 
-## Seed demonstration issues
+## Demo
 
-The issue seeder can populate a fork with curated upstream bug reports for
-local workflow demonstrations. Preview the exact payload without contacting
-GitHub:
+Demo scenarios begin by seeding a curated upstream issue into the configured
+fork. Set these values in `.env` before running a scenario:
 
-```shell
-uv run python scripts/seed_issues.py \
-  --repo thomasjiangcy/superset \
-  --issue mixed-chart-matrixify
+```dotenv
+GITHUB_REPOSITORY=thomasjiangcy/superset
+GITHUB_TOKEN=<fine-grained token with Issues write permission>
 ```
 
-To create the issue, set `GITHUB_TOKEN` to a fine-grained token with Issues
-write permission for the target repository, then opt in to the mutation:
+### Scenario 1: investigate an unvalidated bug report
+
+This scenario starts with
+[apache/superset#39007](https://github.com/apache/superset/issues/39007), an
+unvalidated Mixed Chart report that does not yet contain enough evidence for a
+maintainer to begin implementation.
+
+Create the issue in the configured fork:
 
 ```shell
-uv run python scripts/seed_issues.py \
-  --repo thomasjiangcy/superset \
-  --issue mixed-chart-matrixify \
-  --apply
+uv run scripts/seed_issues.py mixed-chart-matrixify
 ```
 
-The script creates the upstream `validation:required` label if necessary. A
-stable marker in the issue body makes repeated runs idempotent, including when
-the seeded issue has been closed.
+Once the webhook-driven workflow is implemented and registered, the complete
+demo flow will be:
+
+1. The seed script creates the issue in the fork.
+2. GitHub sends an `issues` webhook with the `opened` action.
+3. The application verifies and parses the delivery, then identifies the issue
+   as an unvalidated bug report.
+4. The bug-investigation workflow starts a Devin session with the issue and
+   repository context.
+5. Devin investigates the report, attempts to reproduce it, and returns
+   evidence that can be reviewed before implementation begins.
+
+Only the issue-seeding step is implemented currently. Webhook classification,
+workflow routing, and the Devin investigation handoff will be added as the
+scenario is built out.
+
+The script creates the upstream `validation:required` label if necessary. It
+will not create another copy while the seeded issue remains open. Close the
+previous demo issue before rerunning the scenario to create a fresh issue and
+emit another `opened` webhook.
+
+Preview the exact issue payload without contacting GitHub:
+
+```shell
+uv run scripts/seed_issues.py mixed-chart-matrixify --dry-run
+```
+
+Use `--repo OWNER/REPOSITORY` to override `GITHUB_REPOSITORY`, for example when
+an assessor runs the scenario against their own fork.
 
 ## Code quality
 
