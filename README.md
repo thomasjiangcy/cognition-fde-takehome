@@ -28,6 +28,16 @@ The `.env` file is intentionally ignored by both Git and the Docker build
 context. `GITHUB_WEBHOOK_SECRET` should contain the same high-entropy secret
 configured on the repository webhook.
 
+## Structure
+
+- `app/github/webhooks` owns GitHub webhook transport, verification, and
+  normalized deliveries.
+- `app/workflows` selects and runs zero or more workflows for each delivery.
+- `app/devin` is the first-class home for Devin clients, resources, and
+  sessions.
+- `app/initialization.py` is the startup boundary for idempotent Devin resource
+  setup.
+
 ## Run locally
 
 ```shell
