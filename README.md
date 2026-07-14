@@ -49,18 +49,22 @@ Copy `sample.env` to `.env`, then configure the values required by the demo:
 ```dotenv
 DEVIN_ORG_ID=<Devin organization ID beginning with org->
 DEVIN_API_KEY=<Devin API key beginning with cog_>
-GITHUB_REPOSITORY=thomasjiangcy/superset
 GITHUB_TOKEN=<fine-grained token with Issues read/write and Metadata read>
 ```
 
 `DEVIN_ORG_ID` and `DEVIN_API_KEY` authorize access to the organization's Devin
 resources. The service user needs `ManageAccountPlaybooks` for startup
 reconciliation and `ManageOrgSessions` for workflow execution.
-`GITHUB_REPOSITORY` is the default fork that receives seeded issues.
 `GITHUB_TOKEN` must be a fine-grained token (or classic PAT with `public_repo`
 scope) with Issues read/write permission on the fork; it is used to create
-labels, create issues, and add labels to issues. Configure `.env` before
-starting the stack so Compose passes the values into the application container.
+labels, create issues, and add labels to issues.
+
+The remaining `sample.env` values are handled by Compose defaults and do not
+need to be set: `DATABASE_URL`, `POSTGRES_DB`, `POSTGRES_USER`, and
+`POSTGRES_PASSWORD` default to the Compose PostgreSQL service, and
+`GITHUB_WEBHOOK_SECRET` is optional (the simulate flow does not use webhooks).
+Configure `.env` before starting the stack so Compose passes the values into
+the application container.
 
 ### 2. Start the development stack
 
