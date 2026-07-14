@@ -28,6 +28,131 @@ The `.env` file is intentionally ignored by both Git and the Docker build
 context. `GITHUB_WEBHOOK_SECRET` should contain the same high-entropy secret
 configured on the repository webhook.
 
+## Demo
+
+The demo uses a repository webhook on a Superset fork. The webhook sends newly
+opened issues through the public Cloudflare URL to the local FastAPI service.
+
+### 1. Configure the environment
+
+Copy `sample.env` to `.env`, then configure the values required by the demo:
+
+```dotenv
+DEVIN_ORG_ID=<Devin organization ID beginning with org->
+DEVIN_API_KEY=<Devin API key beginning with cog_>
+GITHUB_REPOSITORY=thomasjiangcy/superset
+GITHUB_TOKEN=
+GITHUB_WEBHOOK_SECRET=<high-entropy webhook secret>
+```
+
+`DEVIN_ORG_ID` and `DEVIN_API_KEY` authorize access to the organization's Devin
+resources. The service user needs `ManageAccountPlaybooks` for startup
+reconciliation and `ManageOrgSessions` for workflow execution.
+`GITHUB_REPOSITORY` is the default fork that receives seeded issues and can be
+overridden with `--repo`. The seeder prefers an authenticated `gh` CLI. If `gh`
+is unavailable or unauthenticated, set `GITHUB_TOKEN` to a fine-grained token
+with Issues write permission. Generate a webhook secret if needed:
+
+```shell
+openssl rand -hex 32
+```
+
+Store that value as `GITHUB_WEBHOOK_SECRET`. The exact same value must be
+entered in GitHub when registering the webhook. Configure `.env` before
+starting the stack so Compose passes the secret into the application container.
+
+### 2. Start the development stack
+
+```shell
+docker compose up --build -d
+```
+
+Confirm that the application is healthy:
+
+```shell
+curl --fail http://127.0.0.1:8080/api/health
+```
+
+Find the temporary public hostname:
+
+```shell
+docker compose logs tunnel
+```
+
+Look for an `https://<random-name>.trycloudflare.com` URL. The full webhook URL
+is:
+
+```text
+https://<random-name>.trycloudflare.com/api/webhooks/github
+```
+
+### 3. Register the repository webhook
+
+In the fork, open **Settings → Webhooks → Add webhook** and configure:
+
+| GitHub field | Value |
+|---|---|
+| Payload URL | The full `/api/webhooks/github` URL above |
+| Content type | **`application/json`** |
+| Secret | The exact `GITHUB_WEBHOOK_SECRET` value from `.env` |
+| SSL verification | Enable SSL verification |
+| Events | Let me select individual events → **Issues** |
+| Active | Enabled |
+
+Do not select `application/x-www-form-urlencoded`; the receiver intentionally
+accepts JSON webhook bodies only. When the webhook is created, GitHub sends a
+`ping`. In **Recent Deliveries**, the ping should show response status `202`
+with a response body similar to:
+
+```json
+{
+  "delivery_id": "<delivery-guid>",
+  "event": "ping",
+  "action": null,
+  "repository": "owner/repository",
+  "status": "received"
+}
+```
+
+If the first ping used the wrong settings, update the webhook and choose
+**Redeliver** on that delivery. Common responses are:
+
+| Status | Meaning |
+|---:|---|
+| `202` | Signature and payload were accepted |
+| `403` | The signature is missing or the GitHub secret does not match `.env` |
+| `415` | Content type is not `application/json` |
+| `503` | `GITHUB_WEBHOOK_SECRET` was not configured when the app started |
+
+Follow application and tunnel logs during the demo with:
+
+```shell
+docker compose logs --follow app tunnel
+```
+
+Cloudflare Quick Tunnel hostnames are temporary. If the tunnel is recreated,
+update the webhook's Payload URL before testing again.
+
+### 4. Trigger issue creation
+
+Run the seed script to create all configured demo issues and fire the `issues`
+webhooks:
+
+```shell
+mise exec -- uv run scripts/seed_issues.py --all
+```
+
+The corresponding `issues` delivery should show response status `202`, action
+`opened`, and status `received`. The application persists the verified delivery,
+routes issues containing `### Bug description` to the bug-investigation
+workflow, and starts a Devin session with the managed playbook and issue context.
+
+The script creates the upstream `validation:required` label and any outcome
+labels (`validation:validated`, `#bug:cant-reproduce`) if necessary and copies
+the upstream issue title and body exactly. It will not create another copy while
+an exact match remains open. Close the previous demo issue before rerunning the
+scenario to create a fresh issue and emit another `opened` webhook.
+
 ## Structure
 
 - `app/webhooks/github` owns GitHub webhook transport, verification, and
@@ -137,154 +262,6 @@ isolated resources in Devin. Each test removes the playbooks it creates:
 ```shell
 mise exec -- uv run pytest -m live tests/integration
 ```
-
-## Demo
-
-The demo uses a repository webhook on a Superset fork. The webhook sends newly
-opened issues through the public Cloudflare URL to the local FastAPI service.
-
-### 1. Configure the environment
-
-Copy `sample.env` to `.env`, then configure the values required by the demo:
-
-```dotenv
-DEVIN_ORG_ID=<Devin organization ID beginning with org->
-DEVIN_API_KEY=<Devin API key beginning with cog_>
-GITHUB_REPOSITORY=thomasjiangcy/superset
-GITHUB_TOKEN=
-GITHUB_WEBHOOK_SECRET=<high-entropy webhook secret>
-```
-
-`DEVIN_ORG_ID` and `DEVIN_API_KEY` authorize access to the organization's Devin
-resources. The service user needs `ManageAccountPlaybooks` for startup
-reconciliation and `ManageOrgSessions` for workflow execution.
-`GITHUB_REPOSITORY` is the default fork that receives seeded issues and can be
-overridden with `--repo`. The seeder prefers an authenticated `gh` CLI. If `gh`
-is unavailable or unauthenticated, set `GITHUB_TOKEN` to a fine-grained token
-with Issues write permission. Generate a webhook secret if needed:
-
-```shell
-openssl rand -hex 32
-```
-
-Store that value as `GITHUB_WEBHOOK_SECRET`. The exact same value must be
-entered in GitHub when registering the webhook. Configure `.env` before
-starting the stack so Compose passes the secret into the application container.
-
-### 2. Start the development stack
-
-```shell
-docker compose up --build -d
-```
-
-Confirm that the application is healthy:
-
-```shell
-curl --fail http://127.0.0.1:8080/api/health
-```
-
-Find the temporary public hostname:
-
-```shell
-docker compose logs tunnel
-```
-
-Look for an `https://<random-name>.trycloudflare.com` URL. The full webhook URL
-is:
-
-```text
-https://<random-name>.trycloudflare.com/api/webhooks/github
-```
-
-### 3. Register the repository webhook
-
-In the fork, open **Settings → Webhooks → Add webhook** and configure:
-
-| GitHub field | Value |
-|---|---|
-| Payload URL | The full `/api/webhooks/github` URL above |
-| Content type | **`application/json`** |
-| Secret | The exact `GITHUB_WEBHOOK_SECRET` value from `.env` |
-| SSL verification | Enable SSL verification |
-| Events | Let me select individual events → **Issues** |
-| Active | Enabled |
-
-Do not select `application/x-www-form-urlencoded`; the receiver intentionally
-accepts JSON webhook bodies only. When the webhook is created, GitHub sends a
-`ping`. In **Recent Deliveries**, the ping should show response status `202`
-with a response body similar to:
-
-```json
-{
-  "delivery_id": "<delivery-guid>",
-  "event": "ping",
-  "action": null,
-  "repository": "owner/repository",
-  "status": "received"
-}
-```
-
-If the first ping used the wrong settings, update the webhook and choose
-**Redeliver** on that delivery. Common responses are:
-
-| Status | Meaning |
-|---:|---|
-| `202` | Signature and payload were accepted |
-| `403` | The signature is missing or the GitHub secret does not match `.env` |
-| `415` | Content type is not `application/json` |
-| `503` | `GITHUB_WEBHOOK_SECRET` was not configured when the app started |
-
-Follow application and tunnel logs during the demo with:
-
-```shell
-docker compose logs --follow app tunnel
-```
-
-Cloudflare Quick Tunnel hostnames are temporary. If the tunnel is recreated,
-update the webhook's Payload URL before testing again.
-
-### 4. Route an unvalidated bug report
-
-This scenario starts with
-[apache/superset#39007](https://github.com/apache/superset/issues/39007), an
-unvalidated Mixed Chart report that does not yet contain enough evidence for a
-maintainer to begin implementation.
-
-Optionally preview the exact issue without contacting GitHub:
-
-```shell
-mise exec -- uv run scripts/seed_issues.py mixed-chart-matrixify --dry-run
-```
-
-Authenticate the GitHub CLI, then create the issue and trigger the webhook:
-
-```shell
-gh auth login
-mise exec -- uv run scripts/seed_issues.py mixed-chart-matrixify
-```
-
-The default target is `thomasjiangcy/superset`. Use `--repo OWNER/REPOSITORY` to
-override the target, or set `GITHUB_REPOSITORY` in `.env` to override the
-default. When `gh` is not installed or authenticated, put a fine-grained token
-with Issues write permission in the uncommitted `.env` file as `GITHUB_TOKEN`;
-the same command then falls back to GitHub's HTTP API.
-
-To seed every configured issue in one run:
-
-```shell
-mise exec -- uv run scripts/seed_issues.py --all
-```
-
-The corresponding `issues` delivery should show response status `202`, action
-`opened`, and status `received`. The application persists the verified delivery,
-routes issues containing `### Bug description` to the bug-investigation
-workflow, and starts a Devin session with the managed playbook and issue context.
-
-The script creates the upstream `validation:required` label and any outcome
-labels (`validation:validated`, `#bug:cant-reproduce`) if necessary and copies
-the upstream issue title and body exactly. It will not create another copy while
-an exact match remains open. Close the previous demo issue before rerunning the
-scenario to create a fresh issue and emit another `opened` webhook.
 
 ## Code quality
 
