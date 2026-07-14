@@ -137,8 +137,9 @@ Lefthook runs Ruff's safe fixes and formatter on staged Python files before
 each commit, then stages the resulting files. Before each push, it runs the
 Ruff checks, type checker, and test suite in parallel.
 
-Because auto-fixing stages the complete affected file, avoid partially staging
-Python files when committing. Run the hooks manually across the repository with:
+Lefthook preserves unstaged changes while applying `stage_fixed`, so partially
+staged files remain partially staged after formatting. Run the hooks manually
+across the repository with:
 
 ```shell
 lefthook run pre-commit --all-files --no-stage-fixed
