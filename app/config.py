@@ -59,3 +59,21 @@ class GitHubWebhookSettings(BaseSettings):
 
 def load_github_webhook_settings() -> GitHubWebhookSettings:
     return GitHubWebhookSettings()
+
+
+class GitHubTokenSettings(BaseSettings):
+    """Optional GitHub token for the application to call GitHub's REST API."""
+
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        env_ignore_empty=True,
+        extra="ignore",
+        strict=True,
+    )
+
+    github_token: SecretStr | None = Field(default=None, min_length=1)
+
+
+def load_github_token_settings() -> GitHubTokenSettings:
+    return GitHubTokenSettings()
