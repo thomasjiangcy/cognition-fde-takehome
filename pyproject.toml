@@ -38,4 +38,4 @@ target-version = "py314"
 select = ["E4", "E7", "E9", "F", "I", "UP", "B", "SIM", "ASYNC"]
 
 [tool.ty.src]
-include = ["app", "tests"]
+include = ["app", "scripts", "tests"]

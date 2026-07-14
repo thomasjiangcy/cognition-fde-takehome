@@ -117,6 +117,32 @@ The project uses pytest, including AnyIO support for async application tests:
 uv run pytest
 ```
 
+## Seed demonstration issues
+
+The issue seeder can populate a fork with curated upstream bug reports for
+local workflow demonstrations. Preview the exact payload without contacting
+GitHub:
+
+```shell
+uv run python scripts/seed_issues.py \
+  --repo thomasjiangcy/superset \
+  --issue mixed-chart-matrixify
+```
+
+To create the issue, set `GITHUB_TOKEN` to a fine-grained token with Issues
+write permission for the target repository, then opt in to the mutation:
+
+```shell
+uv run python scripts/seed_issues.py \
+  --repo thomasjiangcy/superset \
+  --issue mixed-chart-matrixify \
+  --apply
+```
+
+The script creates the upstream `validation:required` label if necessary. A
+stable marker in the issue body makes repeated runs idempotent, including when
+the seeded issue has been closed.
+
 ## Code quality
 
 Format Python code with Ruff:
