@@ -8,10 +8,18 @@ from pydantic import AnyHttpUrl, AwareDatetime, BaseModel, ConfigDict, Validatio
 from sqlalchemy import func, select
 
 from app.automation.models import TriggerEvent, WorkflowRun, WorkflowRunState
-from app.automation.repository import AutomationRepository
+from app.automation.repository import AutomationRepository, TriggerEventData
 from app.database import Database
 from app.devin.models import DevinSession, DevinSessionStatus, DevinSessionStatusDetail
 from app.devin.sessions import DevinSessions
+from app.github.client import GitHubClient
+from app.webhooks.github.models import (
+    GitHubDelivery,
+    GitHubIssuesPayload,
+    GitHubRepository,
+    GitHubUser,
+)
+from app.workflows.dispatcher import WorkflowDispatcher, WorkflowResult
 
 logger = logging.getLogger(__name__)
 MAX_CONCURRENT_SESSION_REFRESHES = 8
@@ -52,10 +60,65 @@ class DashboardService:
     def __init__(self) -> None:
         self._database: Database | None = None
         self._sessions: DevinSessions | None = None
+        self._github_client: GitHubClient | None = None
+        self._dispatcher: WorkflowDispatcher | None = None
 
-    def configure(self, database: Database, sessions: DevinSessions) -> None:
+    def configure(
+        self,
+        database: Database,
+        sessions: DevinSessions,
+        github_client: GitHubClient | None = None,
+        dispatcher: WorkflowDispatcher | None = None,
+    ) -> None:
         self._database = database
         self._sessions = sessions
+        self._github_client = github_client
+        self._dispatcher = dispatcher
+
+    async def run_bug_fix(self, repository: str) -> list[WorkflowResult]:
+        """Scan validated issues and launch a fix session for each unassigned one."""
+        github_client = self._require_github_client()
+        dispatcher = self._require_dispatcher()
+        issues = await github_client.list_issues(
+            repository,
+            labels=("validation:validated",),
+            state="open",
+        )
+        results: list[WorkflowResult] = []
+        for issue in issues:
+            if any(label.name == "devin:assigned" for label in issue.labels):
+                continue
+            delivery = GitHubDelivery(
+                delivery_id=f"manual-{issue.number}",
+                event="manual",
+                action=None,
+                repository=repository,
+                payload=GitHubIssuesPayload(
+                    action="manual",
+                    issue=issue,
+                    repository=GitHubRepository(full_name=repository),
+                    sender=GitHubUser(login="github-devin-automation"),
+                ),
+            )
+            event = TriggerEventData(
+                source="dashboard",
+                external_id=f"{repository}:{issue.number}",
+                event_type="manual",
+                action=None,
+                subject_type="issue",
+                subject_id=str(issue.number),
+                subject_title=issue.title,
+                subject_url=AnyHttpUrl(issue.html_url),
+                received_at=datetime.now(UTC),
+            )
+            prepared = await dispatcher.prepare(delivery, event)
+            for prepared_workflow in prepared:
+                workflow_results = await dispatcher.execute(
+                    (prepared_workflow,),
+                    delivery,
+                )
+                results.extend(workflow_results)
+        return results
 
     async def snapshot(self) -> DashboardSnapshot:
         database = self._require_database()
@@ -245,3 +308,13 @@ class DashboardService:
         if self._sessions is None:
             raise RuntimeError("Dashboard service is not configured")
         return self._sessions
+
+    def _require_github_client(self) -> GitHubClient:
+        if self._github_client is None:
+            raise RuntimeError("GitHub client is not configured")
+        return self._github_client
+
+    def _require_dispatcher(self) -> WorkflowDispatcher:
+        if self._dispatcher is None:
+            raise RuntimeError("Workflow dispatcher is not configured")
+        return self._dispatcher

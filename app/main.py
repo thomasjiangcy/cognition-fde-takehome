@@ -1,5 +1,5 @@
 from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
+from contextlib import AsyncExitStack, asynccontextmanager
 from pathlib import Path
 
 import httpx
@@ -12,6 +12,7 @@ from app.automation.dashboard import DashboardService, DashboardSnapshot
 from app.config import (
     DatabaseSettings,
     DevinSettings,
+    GitHubTokenSettings,
     load_database_settings,
     load_devin_settings,
     load_github_webhook_settings,
@@ -20,9 +21,11 @@ from app.config import (
 from app.database import Database
 from app.devin.client import DevinClient
 from app.devin.sessions import DevinSessions
+from app.github.client import GitHubClient
 from app.initialization import initialize_resources
 from app.observability import Observability, configure_observability
 from app.webhooks.github.router import create_github_webhook_router
+from app.workflows.bug_fix import BUG_FIX_PLAYBOOK, BugFixWorkflow
 from app.workflows.bug_investigation import (
     BUG_INVESTIGATION_PLAYBOOK,
     BugInvestigationWorkflow,
@@ -53,21 +56,41 @@ async def lifespan(
     database = Database.create(
         database_settings if database_settings is not None else load_database_settings()
     )
+    github_token_settings = GitHubTokenSettings()
     try:
-        async with DevinClient(
-            api_key=resolved_devin_settings.devin_api_key,
-            transport=devin_transport,
-        ) as client:
+        async with AsyncExitStack() as stack:
+            client = await stack.enter_async_context(
+                DevinClient(
+                    api_key=resolved_devin_settings.devin_api_key,
+                    transport=devin_transport,
+                )
+            )
             sessions = DevinSessions(client, resolved_devin_settings.devin_org_id)
-            dashboard_service.configure(database, sessions)
-            dispatcher.configure(
-                database,
-                [
-                    BugInvestigationWorkflow(
+            github_client: GitHubClient | None = None
+            if github_token_settings.github_token is not None:
+                github_client = await stack.enter_async_context(
+                    GitHubClient(github_token_settings.github_token)
+                )
+            workflows: list[BugInvestigationWorkflow | BugFixWorkflow] = [
+                BugInvestigationWorkflow(
+                    sessions,
+                    resources.playbook_ids[BUG_INVESTIGATION_PLAYBOOK.macro],
+                )
+            ]
+            if github_client is not None:
+                workflows.append(
+                    BugFixWorkflow(
                         sessions,
-                        resources.playbook_ids[BUG_INVESTIGATION_PLAYBOOK.macro],
+                        github_client,
+                        resources.playbook_ids[BUG_FIX_PLAYBOOK.macro],
                     )
-                ],
+                )
+            dispatcher.configure(database, workflows)
+            dashboard_service.configure(
+                database,
+                sessions,
+                github_client,
+                dispatcher,
             )
             yield
     finally:
@@ -107,3 +130,9 @@ async def dashboard_data() -> DashboardSnapshot:
 @app.get("/api/health", tags=["system"])
 async def health() -> dict[str, str]:
     return {"status": "ok"}
+
+
+@app.post("/api/jobs/bug-fix", tags=["jobs"])
+async def run_bug_fix(repository: str = "thomasjiangcy/superset") -> dict[str, int]:
+    results = await dashboard_service.run_bug_fix(repository)
+    return {"started": len(results)}

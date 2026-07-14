@@ -37,6 +37,11 @@ async def test_startup_and_health(migrated_database_url: str) -> None:
             return httpx.Response(200, content=page.model_dump_json().encode())
 
         received = ManagedPlaybookDefinition.model_validate_json(request.content)
+        playbook_id = (
+            "playbook-bug-investigation"
+            if received.macro == "!investigate-superset-bug"
+            else "playbook-bug-fix"
+        )
         created = DevinPlaybook(
             access_type="org",
             body=received.body,
@@ -44,7 +49,7 @@ async def test_startup_and_health(migrated_database_url: str) -> None:
             created_by="service-user",
             macro=received.macro,
             org_id="org-test",
-            playbook_id="playbook-bug-investigation",
+            playbook_id=playbook_id,
             title=received.title,
             updated_at=1,
             updated_by="service-user",
@@ -68,7 +73,8 @@ async def test_startup_and_health(migrated_database_url: str) -> None:
         devin_transport=devin_transport,
     ):
         assert main.app.state.resources.playbook_ids == {
-            "!investigate-superset-bug": "playbook-bug-investigation"
+            "!investigate-superset-bug": "playbook-bug-investigation",
+            "!fix-superset-bug": "playbook-bug-fix",
         }
         async with AsyncClient(
             transport=app_transport,
@@ -78,7 +84,7 @@ async def test_startup_and_health(migrated_database_url: str) -> None:
             dashboard = await client.get("/")
             dashboard_data = await client.get("/api/dashboard")
 
-    assert methods == ["GET", "POST"]
+    assert methods == ["GET", "POST", "POST"]
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
     assert dashboard.status_code == 200

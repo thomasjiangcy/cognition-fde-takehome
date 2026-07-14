@@ -6,6 +6,7 @@ const failedMetric = document.querySelector("#metric-failed");
 const dashboardMessage = document.querySelector("#dashboard-message");
 const liveMode = document.querySelector("#live-mode");
 const runsBody = document.querySelector("#runs-body");
+const runBugFixButton = document.querySelector("#run-bug-fix");
 
 let pollTimer = null;
 let refreshing = false;
@@ -147,6 +148,23 @@ liveMode.addEventListener("change", () => {
   } else {
     window.clearTimeout(pollTimer);
     pollTimer = null;
+  }
+});
+
+runBugFixButton.addEventListener("click", async () => {
+  runBugFixButton.disabled = true;
+  try {
+    const response = await fetch("/api/jobs/bug-fix", { method: "POST" });
+    if (!response.ok) {
+      throw new Error(`Bug-fix job failed with status ${response.status}`);
+    }
+    const result = await response.json();
+    dashboardMessage.textContent = `Bug-fix job started ${result.started} session(s).`;
+    refreshDashboard();
+  } catch (error) {
+    dashboardMessage.textContent = "Bug-fix job failed. Check the logs.";
+  } finally {
+    runBugFixButton.disabled = false;
   }
 });
 
