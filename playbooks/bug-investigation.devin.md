@@ -74,3 +74,7 @@ Use this structure, omitting only sections that do not apply:
 ```
 
 Attach or link the reproduction video in the issue comment when GitHub and the available authentication support it. Failure to publish a video must not prevent posting the written investigation.
+
+## Completion
+
+When the report comment has been posted and verified, finalize the session by calling `provide_structured_output` with `is_final=true`. Populate the structured output with the investigation outcome, a one-sentence summary, the URL of the posted comment, and the likely root cause when one was identified. Do not wait for further instructions after the comment is posted — call `provide_structured_output` immediately so the session terminates cleanly.

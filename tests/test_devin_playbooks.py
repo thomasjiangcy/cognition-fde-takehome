@@ -23,17 +23,22 @@ def anyio_backend() -> str:
     return "asyncio"
 
 
-def test_bug_investigation_playbook_is_registered_without_structured_output() -> None:
+def test_bug_investigation_playbook_is_registered_with_structured_output() -> None:
     assert MANAGED_PLAYBOOKS == (BUG_INVESTIGATION_PLAYBOOK,)
 
     definition = BUG_INVESTIGATION_PLAYBOOK.load()
 
     assert definition.title == "Investigate Superset bug reports"
     assert definition.macro == "!investigate-superset-bug"
-    assert definition.structured_output_schema is None
+    assert definition.structured_output_schema is not None
+    assert definition.structured_output_schema["type"] == "object"
+    properties = definition.structured_output_schema["properties"]
+    assert isinstance(properties, dict)
+    assert "outcome" in properties
     assert "Post the final report as a comment" in definition.body
     assert "record a short video" in definition.body
     assert "Do not implement a fix" in definition.body
+    assert "provide_structured_output" in definition.body
 
 
 def _definition(
@@ -108,30 +113,9 @@ async def test_reconciliation_creates_a_missing_playbook() -> None:
 
 
 @pytest.mark.anyio
-async def test_reconciliation_leaves_a_matching_playbook_unchanged() -> None:
+async def test_reconciliation_upserts_a_matching_playbook() -> None:
     desired = _definition()
-    methods: list[str] = []
-
-    def handle_devin_request(request: httpx.Request) -> httpx.Response:
-        methods.append(request.method)
-        return httpx.Response(200, content=_page(_remote_playbook(desired)))
-
-    transport = httpx.MockTransport(handle_devin_request)
-    async with DevinClient(
-        "cog_test",
-        base_url="https://api.devin.test/v3/",
-        transport=transport,
-    ) as client:
-        resolved = await DevinPlaybooks(client, "org-test").ensure_all((desired,))
-
-    assert resolved == {"!managed-playbook": "playbook-managed"}
-    assert methods == ["GET"]
-
-
-@pytest.mark.anyio
-async def test_reconciliation_updates_a_changed_playbook() -> None:
-    desired = _definition()
-    current = _remote_playbook(_definition(body="# Old procedure\n"))
+    current = _remote_playbook(desired)
     methods: list[str] = []
 
     def handle_devin_request(request: httpx.Request) -> httpx.Response:

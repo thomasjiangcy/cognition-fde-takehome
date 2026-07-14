@@ -135,8 +135,6 @@ class DevinPlaybooks:
                     raise DuplicateManagedPlaybookError(desired.macro) from error
 
         current = matches[0]
-        if self._matches_desired(current, desired):
-            return current
         return await self.update(current.playbook_id, desired)
 
     @staticmethod
@@ -145,15 +143,3 @@ class DevinPlaybooks:
         playbooks: list[DevinPlaybook],
     ) -> list[DevinPlaybook]:
         return [playbook for playbook in playbooks if playbook.macro == macro]
-
-    @staticmethod
-    def _matches_desired(
-        current: DevinPlaybook,
-        desired: ManagedPlaybookDefinition,
-    ) -> bool:
-        return (
-            current.title == desired.title
-            and current.body == desired.body
-            and current.macro == desired.macro
-            and current.structured_output_schema == desired.structured_output_schema
-        )
