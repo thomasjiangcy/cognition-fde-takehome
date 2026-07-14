@@ -79,8 +79,9 @@ class WorkflowDispatcher:
         self,
         prepared_workflows: Sequence[PreparedWorkflow],
         delivery: GitHubDelivery,
-    ) -> None:
+    ) -> list[WorkflowResult]:
         database = self._require_database()
+        results: list[WorkflowResult] = []
         for prepared in prepared_workflows:
             try:
                 logger.info(
@@ -98,6 +99,7 @@ class WorkflowDispatcher:
                     continue
 
                 result = await prepared.workflow.run(delivery)
+                results.append(result)
                 async with database.sessions.begin() as session:
                     await AutomationRepository(session).record_devin_session(
                         prepared.run_id,
@@ -118,6 +120,7 @@ class WorkflowDispatcher:
                         prepared.run_id,
                         type(error).__name__,
                     )
+        return results
 
     def _require_database(self) -> Database:
         if self._database is None:

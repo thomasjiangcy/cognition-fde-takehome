@@ -9,6 +9,7 @@ from app.devin.models import (
 )
 from app.devin.playbooks import DevinPlaybooks, DuplicateManagedPlaybookError
 from app.initialization import MANAGED_PLAYBOOKS
+from app.workflows.bug_fix import BUG_FIX_PLAYBOOK
 from app.workflows.bug_investigation import BUG_INVESTIGATION_PLAYBOOK
 
 # These simulations cover the third-party Devin API v3 network boundary and use
@@ -24,7 +25,7 @@ def anyio_backend() -> str:
 
 
 def test_bug_investigation_playbook_is_registered_with_structured_output() -> None:
-    assert MANAGED_PLAYBOOKS == (BUG_INVESTIGATION_PLAYBOOK,)
+    assert MANAGED_PLAYBOOKS == (BUG_INVESTIGATION_PLAYBOOK, BUG_FIX_PLAYBOOK)
 
     definition = BUG_INVESTIGATION_PLAYBOOK.load()
 
@@ -38,6 +39,21 @@ def test_bug_investigation_playbook_is_registered_with_structured_output() -> No
     assert "Post the final report as a comment" in definition.body
     assert "record a short video" in definition.body
     assert "Do not implement a fix" in definition.body
+    assert "provide_structured_output" in definition.body
+
+
+def test_bug_fix_playbook_is_registered_with_structured_output() -> None:
+    definition = BUG_FIX_PLAYBOOK.load()
+
+    assert definition.title == "Fix a validated Superset bug and open a PR"
+    assert definition.macro == "!fix-superset-bug"
+    assert definition.structured_output_schema is not None
+    assert definition.structured_output_schema["type"] == "object"
+    properties = definition.structured_output_schema["properties"]
+    assert isinstance(properties, dict)
+    assert "pr_url" in properties
+    assert "branch_name" in properties
+    assert "open a pull request" in definition.body
     assert "provide_structured_output" in definition.body
 
 

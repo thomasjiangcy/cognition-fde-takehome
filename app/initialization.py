@@ -6,11 +6,15 @@ import httpx
 from app.config import DevinSettings, load_devin_settings
 from app.devin.client import DevinClient
 from app.devin.playbooks import DevinPlaybooks, ManagedPlaybookSpec
+from app.workflows.bug_fix import BUG_FIX_PLAYBOOK
 from app.workflows.bug_investigation import BUG_INVESTIGATION_PLAYBOOK
 
 logger = logging.getLogger(__name__)
 
-MANAGED_PLAYBOOKS: tuple[ManagedPlaybookSpec, ...] = (BUG_INVESTIGATION_PLAYBOOK,)
+MANAGED_PLAYBOOKS: tuple[ManagedPlaybookSpec, ...] = (
+    BUG_INVESTIGATION_PLAYBOOK,
+    BUG_FIX_PLAYBOOK,
+)
 
 
 @dataclass(frozen=True, slots=True)
