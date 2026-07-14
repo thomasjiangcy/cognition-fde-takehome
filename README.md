@@ -108,6 +108,24 @@ docker compose down
 
 ## Test
 
+The project uses pytest, including AnyIO support for async application tests:
+
 ```shell
 uv run pytest
+```
+
+## Code quality
+
+Format Python code with Ruff:
+
+```shell
+uv run ruff format .
+```
+
+Run formatting, linting, and type-checking verification:
+
+```shell
+uv run ruff format --check .
+uv run ruff check .
+uv run ty check
 ```

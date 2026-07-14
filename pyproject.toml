@@ -14,9 +14,21 @@ dependencies = [
 [dependency-groups]
 dev = [
     "httpx>=0.27,<1.0",
-    "pytest>=8.3,<9.0",
+    "pytest>=9.1,<10.0",
+    "ruff>=0.15.21",
+    "ty>=0.0.59",
 ]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
 testpaths = ["tests"]
+strict = true
+
+[tool.ruff]
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I", "UP", "B", "SIM", "ASYNC"]
+
+[tool.ty.src]
+include = ["app", "tests"]
