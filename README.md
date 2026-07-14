@@ -156,10 +156,11 @@ Only the issue-seeding step is implemented currently. Webhook classification,
 workflow routing, and the Devin investigation handoff will be added as the
 scenario is built out.
 
-The script creates the upstream `validation:required` label if necessary. It
-will not create another copy while the seeded issue remains open. Close the
-previous demo issue before rerunning the scenario to create a fresh issue and
-emit another `opened` webhook.
+The script creates the upstream `validation:required` label if necessary and
+copies the upstream issue title and body exactly. It will not create another
+copy while an exact match remains open. Close the previous demo issue before
+rerunning the scenario to create a fresh issue and emit another `opened`
+webhook.
 
 Preview the exact issue payload without contacting GitHub:
 

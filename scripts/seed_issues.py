@@ -115,26 +115,17 @@ class SeedLabel:
 class SeedIssue:
     key: str
     title: str
-    source_url: str
     body_path: Path
     labels: tuple[SeedLabel, ...]
 
-    @property
-    def marker(self) -> str:
-        return f"<!-- cognition-fde-seed:{self.key} -->"
-
     def render_body(self) -> str:
-        report = self.body_path.read_text(encoding="utf-8").rstrip()
-        return (
-            f"{report}\n\n---\n\nUpstream report: {self.source_url}\n\n{self.marker}\n"
-        )
+        return self.body_path.read_text(encoding="utf-8").removesuffix("\n")
 
 
 SEED_CATALOG: dict[str, SeedIssue] = {
     "mixed-chart-matrixify": SeedIssue(
         key="apache-superset-39007",
         title="6.1.0rc1 - matrixify not applying to query B in Mixed Chart",
-        source_url="https://github.com/apache/superset/issues/39007",
         body_path=SEEDS_DIRECTORY / "mixed-chart-matrixify.md",
         labels=(
             SeedLabel(
@@ -248,8 +239,9 @@ async def seed_issue(
     seed: SeedIssue,
 ) -> SeedResult:
     issues = await client.list_issues(repository)
+    seed_body = seed.render_body()
     for issue in issues:
-        if issue.body is not None and seed.marker in issue.body:
+        if issue.title == seed.title and issue.body == seed_body:
             return SeedResult(
                 created=False,
                 issue_number=issue.number,
@@ -263,7 +255,7 @@ async def seed_issue(
         repository,
         CreateIssueRequest(
             title=seed.title,
-            body=seed.render_body(),
+            body=seed_body,
             labels=tuple(label.name for label in seed.labels),
         ),
     )
@@ -328,7 +320,7 @@ def print_preview(arguments: CliArguments) -> None:
     print(f"Title: {arguments.issue.title}")
     print(f"Labels: {labels}")
     print("\nBody:\n")
-    print(arguments.issue.render_body(), end="")
+    print(arguments.issue.render_body())
 
 
 async def apply_seed(arguments: CliArguments) -> SeedResult:

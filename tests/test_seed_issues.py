@@ -42,7 +42,8 @@ async def test_seed_creates_missing_label_and_issue() -> None:
                 strict=True,
             )
             assert issue.labels == ("validation:required",)
-            assert seed.marker in issue.body
+            assert issue.title == seed.title
+            assert issue.body == seed.render_body()
             return httpx.Response(
                 201,
                 json={
@@ -77,7 +78,7 @@ async def test_seed_creates_missing_label_and_issue() -> None:
 
 
 @pytest.mark.anyio
-async def test_seed_reuses_open_issue_with_matching_marker() -> None:
+async def test_seed_reuses_open_issue_with_exact_content() -> None:
     seed = SEED_CATALOG["mixed-chart-matrixify"]
     request_count = 0
 
@@ -113,10 +114,11 @@ async def test_seed_reuses_open_issue_with_matching_marker() -> None:
     assert request_count == 1
 
 
-def test_seed_body_records_upstream_provenance() -> None:
+def test_seed_body_contains_no_seeder_metadata() -> None:
     seed = SEED_CATALOG["mixed-chart-matrixify"]
 
     body = seed.render_body()
 
-    assert seed.source_url in body
-    assert seed.marker in body
+    assert body.startswith("### Bug description\n\nHello,")
+    assert "Upstream report:" not in body
+    assert "<!-- cognition-fde-seed:" not in body
