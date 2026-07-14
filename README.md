@@ -260,25 +260,31 @@ Authenticate the GitHub CLI, then create the issue and trigger the webhook:
 
 ```shell
 gh auth login
-mise exec -- uv run scripts/seed_issues.py mixed-chart-matrixify \
-  --repo thomasjiangcy/superset
+mise exec -- uv run scripts/seed_issues.py mixed-chart-matrixify
 ```
 
-The explicit `--repo OWNER/REPOSITORY` target overrides `GITHUB_REPOSITORY`. When
-`gh` is not installed or authenticated, put a fine-grained token with Issues
-write permission in the uncommitted `.env` file as `GITHUB_TOKEN`; the same
-command then falls back to GitHub's HTTP API.
+The default target is `thomasjiangcy/superset`. Use `--repo OWNER/REPOSITORY` to
+override the target, or set `GITHUB_REPOSITORY` in `.env` to override the
+default. When `gh` is not installed or authenticated, put a fine-grained token
+with Issues write permission in the uncommitted `.env` file as `GITHUB_TOKEN`;
+the same command then falls back to GitHub's HTTP API.
+
+To seed every configured issue in one run:
+
+```shell
+mise exec -- uv run scripts/seed_issues.py --all
+```
 
 The corresponding `issues` delivery should show response status `202`, action
 `opened`, and status `received`. The application persists the verified delivery,
 routes issues containing `### Bug description` to the bug-investigation
 workflow, and starts a Devin session with the managed playbook and issue context.
 
-The script creates the upstream `validation:required` label if necessary and
-copies the upstream issue title and body exactly. It will not create another
-copy while an exact match remains open. Close the previous demo issue before
-rerunning the scenario to create a fresh issue and emit another `opened`
-webhook.
+The script creates the upstream `validation:required` label and any outcome
+labels (`validation:validated`, `#bug:cant-reproduce`) if necessary and copies
+the upstream issue title and body exactly. It will not create another copy while
+an exact match remains open. Close the previous demo issue before rerunning the
+scenario to create a fresh issue and emit another `opened` webhook.
 
 ## Code quality
 

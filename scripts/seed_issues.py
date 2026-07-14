@@ -24,6 +24,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 GITHUB_API_VERSION = "2022-11-28"
 SEEDS_DIRECTORY = Path(__file__).with_name("seeds")
+DEFAULT_REPOSITORY = "thomasjiangcy/superset"
 
 
 class GitHubSettings(BaseSettings):
@@ -448,14 +449,15 @@ async def seed_issue(
 
 class CliNamespace(argparse.Namespace):
     repository: str | None
-    issue: str
+    issue: str | None
+    all: bool
     dry_run: bool
 
 
 @dataclass(frozen=True)
 class CliArguments:
     repository: Repository
-    issue: SeedIssue
+    issues: tuple[SeedIssue, ...]
     dry_run: bool
 
 
@@ -465,8 +467,15 @@ def parse_arguments(argv: Sequence[str] | None = None) -> CliArguments:
     )
     parser.add_argument(
         "issue",
+        nargs="?",
+        default=None,
         choices=tuple(SEED_CATALOG),
-        help="Seed issue to create.",
+        help="Seed issue to create. Use --all to seed every issue.",
+    )
+    parser.add_argument(
+        "--all",
+        action="store_true",
+        help="Seed every configured issue.",
     )
     parser.add_argument(
         "--repo",
@@ -479,43 +488,47 @@ def parse_arguments(argv: Sequence[str] | None = None) -> CliArguments:
         help="Preview the payload without contacting GitHub.",
     )
     namespace = parser.parse_args(argv, namespace=CliNamespace())
+    if namespace.all:
+        issues = tuple(SEED_CATALOG.values())
+    elif namespace.issue is None:
+        parser.error("issue is required unless --all is used")
+    else:
+        issues = (SEED_CATALOG[namespace.issue],)
     repository_value = namespace.repository
     if repository_value is None:
         try:
             repository_value = SeedTargetSettings().github_repository
         except ValidationError:
-            parser.error(
-                "--repo OWNER/REPOSITORY is required when GITHUB_REPOSITORY is not set"
-            )
+            repository_value = DEFAULT_REPOSITORY
     try:
         repository = Repository.parse(repository_value)
     except ValueError as error:
         parser.error(str(error))
     return CliArguments(
         repository=repository,
-        issue=SEED_CATALOG[namespace.issue],
+        issues=issues,
         dry_run=namespace.dry_run,
     )
 
 
-def print_preview(arguments: CliArguments) -> None:
-    labels = ", ".join(label.name for label in arguments.issue.labels)
-    print(f"Target: {arguments.repository.full_name}")
-    print(f"Seed: {arguments.issue.key}")
-    print(f"Title: {arguments.issue.title}")
+def print_preview(repository: Repository, issue: SeedIssue) -> None:
+    labels = ", ".join(label.name for label in issue.labels)
+    print(f"Target: {repository.full_name}")
+    print(f"Seed: {issue.key}")
+    print(f"Title: {issue.title}")
     print(f"Labels: {labels}")
     print("\nBody:\n")
-    print(arguments.issue.render_body())
+    print(issue.render_body())
 
 
-async def apply_seed(arguments: CliArguments) -> SeedResult:
+async def apply_seeds(
+    repository: Repository,
+    issues: Sequence[SeedIssue],
+) -> list[SeedResult]:
     gh_executable = await authenticated_gh()
     if gh_executable is not None:
-        return await seed_issue(
-            GitHubCliClient(gh_executable),
-            arguments.repository,
-            arguments.issue,
-        )
+        client = GitHubCliClient(gh_executable)
+        return [await seed_issue(client, repository, issue) for issue in issues]
 
     token = GitHubSettings().github_token
     if token is None:
@@ -524,22 +537,25 @@ async def apply_seed(arguments: CliArguments) -> SeedResult:
             "GITHUB_TOKEN to a token with Issues write permission"
         )
     async with GitHubClient(token) as client:
-        return await seed_issue(client, arguments.repository, arguments.issue)
+        return [await seed_issue(client, repository, issue) for issue in issues]
 
 
 def main(argv: Sequence[str] | None = None) -> int:
     arguments = parse_arguments(argv)
     if arguments.dry_run:
-        print_preview(arguments)
+        for issue in arguments.issues:
+            print_preview(arguments.repository, issue)
+            print("---")
         return 0
 
     try:
-        result = asyncio.run(apply_seed(arguments))
+        results = asyncio.run(apply_seeds(arguments.repository, arguments.issues))
     except GitHubAuthenticationError as error:
         print(f"error: {error}", file=sys.stderr)
         return 2
-    action = "Created" if result.created else "Already present"
-    print(f"{action}: {result.issue_url} (issue #{result.issue_number})")
+    for result in results:
+        action = "Created" if result.created else "Already present"
+        print(f"{action}: {result.issue_url} (issue #{result.issue_number})")
     return 0
 
 

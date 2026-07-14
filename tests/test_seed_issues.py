@@ -12,6 +12,7 @@ from scripts.seed_issues import (
     GitHubCliClient,
     GitHubClient,
     Repository,
+    parse_arguments,
     seed_issue,
 )
 
@@ -167,3 +168,26 @@ def test_seed_body_contains_no_seeder_metadata() -> None:
     assert body.startswith("### Bug description\n\nHello,")
     assert "Upstream report:" not in body
     assert "<!-- cognition-fde-seed:" not in body
+
+
+def test_parse_arguments_selects_single_issue() -> None:
+    arguments = parse_arguments(
+        ["mixed-chart-matrixify", "--repo", "thomasjiangcy/superset"],
+    )
+
+    assert arguments.repository.full_name == "thomasjiangcy/superset"
+    assert len(arguments.issues) == 1
+    assert arguments.issues[0].key == "apache-superset-39007"
+
+
+def test_parse_arguments_selects_all_issues() -> None:
+    arguments = parse_arguments(
+        ["--all", "--repo", "thomasjiangcy/superset"],
+    )
+
+    assert arguments.repository.full_name == "thomasjiangcy/superset"
+    assert len(arguments.issues) == len(SEED_CATALOG)
+    assert {issue.key for issue in arguments.issues} == {
+        "apache-superset-39007",
+        "apache-superset-40708",
+    }
