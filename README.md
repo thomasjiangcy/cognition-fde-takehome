@@ -88,15 +88,22 @@ docker compose logs --follow app
 
 ### 3. Simulate issue workflow
 
-Click **Simulate issue workflow** on the dashboard. The application creates all
-configured demo issues in the fork (creating any missing labels first), then
-dispatches each issue through the same `issues.opened` workflow that a real
-webhook would trigger. The dashboard polls every 5 seconds and shows each
-workflow run's status, Devin session link, and completion state.
+Click **Simulate issue workflow** on the dashboard, or run the equivalent
+curl command:
 
-Each click creates fresh issues, so the demo can be repeated without closing
-previous issues. The bug-investigation workflow starts a Devin session with the
-managed playbook and issue context for each issue containing
+```shell
+curl -X POST http://127.0.0.1:8080/api/jobs/simulate-issue
+```
+
+The application creates all configured demo issues in the fork (creating any
+missing labels first), then dispatches each issue through the same
+`issues.opened` workflow that a real webhook would trigger. The dashboard
+polls every 5 seconds and shows each workflow run's status, Devin session
+link, and completion state.
+
+Each click or curl creates fresh issues, so the demo can be repeated without
+closing previous issues. The bug-investigation workflow starts a Devin session
+with the managed playbook and issue context for each issue containing
 `### Bug description`.
 
 Once an issue has been investigated and labeled `validation:validated`, click
