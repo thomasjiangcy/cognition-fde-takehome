@@ -1,5 +1,6 @@
 import httpx
 import pytest
+from pydantic import ValidationError
 
 from app.devin.client import DevinClient
 from app.devin.models import DevinSessionCreateRequest
@@ -89,7 +90,76 @@ async def test_bug_investigation_starts_devin_session_with_issue_context() -> No
     request = received_requests[0]
     assert request.playbook_id == "playbook-bug-investigation"
     assert request.repos == ["octocat/superset"]
-    assert request.structured_output_required is False
+    assert request.structured_output_required is True
+    assert request.structured_output_schema is not None
+    assert request.structured_output_schema["type"] == "object"
+    properties = request.structured_output_schema["properties"]
+    assert isinstance(properties, dict)
+    assert "outcome" in properties
     assert request.tags == ["github-automation", "bug-investigation"]
     assert "Repository: octocat/superset" in request.prompt
     assert "Issue: https://github.com/octocat/superset/issues/1347" in request.prompt
+
+
+def test_session_request_rejects_required_without_schema() -> None:
+    with pytest.raises(ValidationError, match="structured_output_schema"):
+        DevinSessionCreateRequest(
+            prompt="Investigate a bug.",
+            playbook_id="playbook-test",
+            repos=["octocat/superset"],
+            structured_output_required=True,
+            tags=["test"],
+            title="Test",
+        )
+
+
+def test_session_request_allows_optional_without_schema() -> None:
+    request = DevinSessionCreateRequest(
+        prompt="Investigate a bug.",
+        playbook_id="playbook-test",
+        repos=["octocat/superset"],
+        structured_output_schema=None,
+        structured_output_required=False,
+        tags=["test"],
+        title="Test",
+    )
+    assert request.structured_output_required is False
+    assert request.structured_output_schema is None
+
+
+@pytest.mark.anyio
+async def test_devin_sessions_terminates_running_session() -> None:
+    received: list[httpx.Request] = []
+
+    def handle_devin_request(request: httpx.Request) -> httpx.Response:
+        received.append(request)
+        if request.method == "DELETE":
+            assert request.url.path == "/v3/organizations/org-test/sessions/devin-123"
+            assert request.url.query == b"archive=false"
+            return httpx.Response(
+                200,
+                json={
+                    "session_id": "devin-123",
+                    "url": "https://app.devin.ai/sessions/devin-123",
+                    "status": "running",
+                    "status_detail": None,
+                    "tags": ["github-automation", "bug-investigation"],
+                    "org_id": "org-test",
+                    "created_at": 1,
+                    "updated_at": 2,
+                    "acus_consumed": 1.0,
+                    "pull_requests": [],
+                },
+            )
+        return httpx.Response(404)
+
+    transport = httpx.MockTransport(handle_devin_request)
+    async with DevinClient(
+        "cog_test",
+        base_url="https://api.devin.test/v3/",
+        transport=transport,
+    ) as client:
+        await DevinSessions(client, "org-test").terminate("devin-123")
+
+    assert len(received) == 1
+    assert received[0].method == "DELETE"

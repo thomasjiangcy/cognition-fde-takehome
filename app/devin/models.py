@@ -1,7 +1,7 @@
 from enum import StrEnum
 from typing import Literal
 
-from pydantic import AnyHttpUrl, BaseModel, ConfigDict, Field
+from pydantic import AnyHttpUrl, BaseModel, ConfigDict, Field, model_validator
 
 type JsonValue = (
     None | bool | int | float | str | list[JsonValue] | dict[str, JsonValue]
@@ -77,16 +77,33 @@ class DevinSessionStatusDetail(StrEnum):
 
 
 class DevinSessionCreateRequest(BaseModel):
-    """Validated v3 request used to start a workflow session."""
+    """Validated v3 request used to start a workflow session.
+
+    When ``structured_output_schema`` is provided, the Devin session is
+    provisioned with the ``provide_structured_output`` tool.  Setting
+    ``structured_output_required`` to ``True`` (the default whenever a schema is
+    supplied) forces Devin to call that tool with ``is_final=true`` before its
+    turn ends, giving the session a deterministic termination path instead of
+    dropping into ``waiting_for_user`` indefinitely.
+    """
 
     model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
 
     prompt: str = Field(min_length=1)
     playbook_id: str = Field(pattern=r"^playbook-.+$")
     repos: list[str] = Field(min_length=1)
-    structured_output_required: Literal[False] = False
+    structured_output_schema: JsonObject | None = None
+    structured_output_required: bool = True
     tags: list[str] = Field(min_length=1)
     title: str = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def _validate_structured_output_invariant(self) -> DevinSessionCreateRequest:
+        if self.structured_output_required and self.structured_output_schema is None:
+            raise ValueError(
+                "structured_output_required=True requires a structured_output_schema"
+            )
+        return self
 
 
 class DevinSession(BaseModel):
@@ -94,10 +111,11 @@ class DevinSession(BaseModel):
 
     model_config = ConfigDict(extra="ignore", frozen=True, strict=True)
 
-    session_id: str = Field(pattern=r"^devin-.+$")
+    session_id: str = Field(pattern=r"^(?:devin-.+|[a-fA-F0-9]{32})$")
     url: AnyHttpUrl
     status: DevinSessionStatus
     status_detail: DevinSessionStatusDetail | None = None
+    structured_output: JsonObject | None = None
     tags: list[str]
     org_id: str = Field(pattern=r"^org-.+$")
     created_at: int
