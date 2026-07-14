@@ -29,9 +29,9 @@ function App() {
   return (
     <div className="app-shell">
       <header className="site-header">
-        <a className="brand" href="/" aria-label="Devin webhook dashboard home">
+        <a className="brand" href="/" aria-label="Devin automation dashboard home">
           <span className="brand-mark" aria-hidden="true">D</span>
-          <span>Devin webhook dashboard</span>
+          <span>Devin automation dashboard</span>
         </a>
         <div className={`api-status api-status--${apiStatus}`} role="status">
           <span className="status-dot" aria-hidden="true" />
@@ -42,10 +42,10 @@ function App() {
       <main>
         <section className="hero">
           <p className="eyebrow">GitHub → Devin</p>
-          <h1>Webhook activity,<br />at a glance.</h1>
+          <h1>Automation runs,<br />at a glance.</h1>
           <p className="hero-copy">
-            This dashboard will report on incoming GitHub events and the Devin
-            sessions they start.
+            This dashboard will report on scheduled and manually triggered
+            repository scans and the Devin sessions they start.
           </p>
         </section>
 
@@ -56,7 +56,7 @@ function App() {
           </div>
           <p>
             The React and Vite foundation is ready. Metrics and activity will
-            appear here once the webhook flow is implemented.
+            appear here once the automation workflow is implemented.
           </p>
         </section>
       </main>

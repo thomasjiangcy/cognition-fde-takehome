@@ -2,8 +2,8 @@ from fastapi import FastAPI
 
 
 app = FastAPI(
-    title="GitHub to Devin Webhook Service",
-    description="Receives GitHub webhooks and starts Devin sessions.",
+    title="GitHub to Devin Automation Service",
+    description="Runs scheduled and manually triggered GitHub-to-Devin workflows.",
     version="0.1.0",
 )
 

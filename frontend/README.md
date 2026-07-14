@@ -1,6 +1,6 @@
-# Devin webhook dashboard
+# Devin automation dashboard
 
-React and Vite frontend for GitHub webhook and Devin session reporting.
+React and Vite frontend for scheduled and manual GitHub-to-Devin automation.
 
 From the repository root:
 

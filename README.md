@@ -1,8 +1,8 @@
-# GitHub to Devin webhook service
+# GitHub to Devin automation service
 
-A FastAPI service that will receive GitHub webhooks and start Devin sessions,
-with a React and Vite frontend for reporting. The webhook contract and Devin
-integration will be added as their requirements are defined.
+A FastAPI service for scheduled and manually triggered GitHub-to-Devin
+workflows, with a React and Vite frontend for reporting. The automation logic
+will be added as its requirements are defined.
 
 ## Setup
 
@@ -43,17 +43,17 @@ The dashboard is available at <http://127.0.0.1:5173>.
 Build the single-container image:
 
 ```shell
-docker build -t github-devin-webhooks .
+docker build -t github-devin-automation .
 ```
 
 Run the frontend and API together:
 
 ```shell
 docker run -d \
-  --name github-devin-webhooks \
+  --name github-devin-automation \
   --env-file .env \
   -p 8080:8080 \
-  github-devin-webhooks
+  github-devin-automation
 ```
 
 The application is available at <http://127.0.0.1:8080>, with the API exposed
@@ -65,36 +65,7 @@ under `/api`. Useful container endpoints:
 Stop and remove the container with:
 
 ```shell
-docker rm -f github-devin-webhooks
-```
-
-## Run with a public development URL
-
-Docker Compose starts the application and a Cloudflare Quick Tunnel together:
-
-```shell
-docker compose up -d --build
-```
-
-Find the generated public URL in the tunnel logs:
-
-```shell
-docker compose logs tunnel
-```
-
-Look for an `https://<random-name>.trycloudflare.com` URL. The dashboard and
-API are available through that hostname; the future GitHub webhook endpoint
-will use a URL such as
-`https://<random-name>.trycloudflare.com/api/webhooks/github`.
-
-Quick Tunnel hostnames are temporary and normally change when the tunnel is
-recreated. A named Cloudflare Tunnel can be added later if the webhook needs a
-stable hostname.
-
-Stop both services with:
-
-```shell
-docker compose down
+docker rm -f github-devin-automation
 ```
 
 ## Test

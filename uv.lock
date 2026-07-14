@@ -80,7 +80,7 @@ wheels = [
 ]
 
 [[package]]
-name = "github-devin-webhooks"
+name = "github-devin-automation"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [

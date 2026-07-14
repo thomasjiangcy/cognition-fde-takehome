@@ -1,7 +1,7 @@
 [project]
-name = "github-devin-webhooks"
+name = "github-devin-automation"
 version = "0.1.0"
-description = "FastAPI service for handling GitHub webhooks and starting Devin sessions."
+description = "FastAPI service for scheduled and manual GitHub-to-Devin automation."
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
