@@ -1,0 +1,15 @@
+[tools]
+python = "3.12"
+uv = "latest"
+
+[tasks.install]
+description = "Install project dependencies"
+run = "uv sync"
+
+[tasks.dev]
+description = "Run the API with auto-reload"
+run = "uv run uvicorn app.main:app --reload"
+
+[tasks.test]
+description = "Run the test suite"
+run = "uv run pytest"
