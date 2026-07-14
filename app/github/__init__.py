@@ -1,1 +1,0 @@
-"""GitHub-facing application capabilities."""

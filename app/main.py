@@ -9,9 +9,9 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from app.config import load_observability_settings
-from app.github.webhooks.router import router as github_webhook_router
 from app.initialization import initialize_resources
 from app.observability import Observability, configure_observability
+from app.webhooks.github.router import router as github_webhook_router
 
 APP_DIR = Path(__file__).resolve().parent
 scheduler = AsyncIOScheduler(timezone="UTC")

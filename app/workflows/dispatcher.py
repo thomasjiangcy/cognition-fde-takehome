@@ -1,7 +1,7 @@
 from collections.abc import Iterable, Sequence
 from typing import Protocol
 
-from app.github.webhooks.models import GitHubDelivery
+from app.webhooks.github.models import GitHubDelivery
 
 
 class Workflow(Protocol):

@@ -1,4 +1,4 @@
-from app.github.webhooks.models import GitHubDelivery
+from app.webhooks.github.models import GitHubDelivery
 
 
 class InitialWorkflow:

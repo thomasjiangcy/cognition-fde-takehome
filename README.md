@@ -33,7 +33,7 @@ configured on the repository webhook.
 
 ## Structure
 
-- `app/github/webhooks` owns GitHub webhook transport, verification, and
+- `app/webhooks/github` owns GitHub webhook transport, verification, and
   normalized deliveries.
 - `app/workflows` selects and runs zero or more workflows for each delivery.
 - `app/devin` is the first-class home for Devin clients, resources, and

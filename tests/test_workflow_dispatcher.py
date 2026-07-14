@@ -1,6 +1,6 @@
 import pytest
 
-from app.github.webhooks.models import GitHubDelivery
+from app.webhooks.github.models import GitHubDelivery
 from app.workflows.dispatcher import WorkflowDispatcher
 from app.workflows.initial_workflow import InitialWorkflow
 
