@@ -5,6 +5,10 @@ GitHub-to-Devin workflows. FastAPI serves both the API and a basic
 server-rendered dashboard, while APScheduler provides an in-memory scheduling
 primitive for the automation logic that will be added later.
 
+At startup, the application runs a resource initialization hook before starting
+the scheduler. The hook is currently a placeholder for future idempotent Devin
+blueprint and playbook setup.
+
 ## Setup
 
 Install the configured Python and `uv` versions, then install dependencies:

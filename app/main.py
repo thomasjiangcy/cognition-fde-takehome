@@ -8,6 +8,8 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
+from app.initialization import initialize_resources
+
 
 APP_DIR = Path(__file__).resolve().parent
 scheduler = AsyncIOScheduler(timezone="UTC")
@@ -15,6 +17,7 @@ scheduler = AsyncIOScheduler(timezone="UTC")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    await initialize_resources()
     app.state.scheduler = scheduler
     scheduler.start()
     try:
