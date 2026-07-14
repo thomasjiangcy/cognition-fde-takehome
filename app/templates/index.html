@@ -63,9 +63,14 @@
       <section class="mt-6" aria-labelledby="runs-heading">
         <header class="hstack justify-between mb-4">
           <h2 id="runs-heading">Workflow runs</h2>
-          <button id="run-bug-fix" type="button" class="button primary">
-            Run bug-fix job
-          </button>
+          <div class="hstack gap-2">
+            <button id="simulate-issue" type="button" class="button primary">
+              Simulate issue workflow
+            </button>
+            <button id="run-bug-fix" type="button" class="button primary">
+              Run bug-fix job
+            </button>
+          </div>
         </header>
         <div id="dashboard-message"></div>
         <div class="responsive-table">

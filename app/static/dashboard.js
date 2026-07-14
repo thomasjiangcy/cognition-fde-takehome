@@ -7,6 +7,7 @@ const dashboardMessage = document.querySelector("#dashboard-message");
 const liveMode = document.querySelector("#live-mode");
 const runsBody = document.querySelector("#runs-body");
 const runBugFixButton = document.querySelector("#run-bug-fix");
+const simulateIssueButton = document.querySelector("#simulate-issue");
 
 let pollTimer = null;
 let refreshing = false;
@@ -165,6 +166,23 @@ runBugFixButton.addEventListener("click", async () => {
     dashboardMessage.textContent = "Bug-fix job failed. Check the logs.";
   } finally {
     runBugFixButton.disabled = false;
+  }
+});
+
+simulateIssueButton.addEventListener("click", async () => {
+  simulateIssueButton.disabled = true;
+  try {
+    const response = await fetch("/api/jobs/simulate-issue", { method: "POST" });
+    if (!response.ok) {
+      throw new Error(`Simulate issue failed with status ${response.status}`);
+    }
+    const result = await response.json();
+    dashboardMessage.textContent = `Simulated issue workflow started ${result.started} session(s).`;
+    refreshDashboard();
+  } catch (error) {
+    dashboardMessage.textContent = "Simulate issue workflow failed. Check the logs.";
+  } finally {
+    simulateIssueButton.disabled = false;
   }
 });
 

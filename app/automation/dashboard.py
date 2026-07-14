@@ -13,6 +13,7 @@ from app.database import Database
 from app.devin.models import DevinSession, DevinSessionStatus, DevinSessionStatusDetail
 from app.devin.sessions import DevinSessions
 from app.github.client import GitHubClient
+from app.github.models import GitHubLabelDefinition
 from app.webhooks.github.models import (
     GitHubDelivery,
     GitHubIssuesPayload,
@@ -20,6 +21,7 @@ from app.webhooks.github.models import (
     GitHubUser,
 )
 from app.workflows.dispatcher import WorkflowDispatcher, WorkflowResult
+from scripts.seed_issues import SEED_CATALOG
 
 logger = logging.getLogger(__name__)
 MAX_CONCURRENT_SESSION_REFRESHES = 8
@@ -105,6 +107,65 @@ class DashboardService:
                 external_id=f"{repository}:{issue.number}",
                 event_type="manual",
                 action=None,
+                subject_type="issue",
+                subject_id=str(issue.number),
+                subject_title=issue.title,
+                subject_url=AnyHttpUrl(issue.html_url),
+                received_at=datetime.now(UTC),
+            )
+            prepared = await dispatcher.prepare(delivery, event)
+            for prepared_workflow in prepared:
+                workflow_results = await dispatcher.execute(
+                    (prepared_workflow,),
+                    delivery,
+                )
+                results.extend(workflow_results)
+        return results
+
+    async def simulate_issue_workflow(self, repository: str) -> list[WorkflowResult]:
+        """Create demo issues and dispatch them through the webhook workflow.
+
+        This simulates the GitHub ``issues.opened`` webhook delivery for
+        reviewers who cannot register a webhook URL on the source repository.
+        Each seed issue is created in the fork and then routed through the same
+        workflow dispatcher that a real webhook delivery would use.
+        """
+        github_client = self._require_github_client()
+        dispatcher = self._require_dispatcher()
+        results: list[WorkflowResult] = []
+        for seed in SEED_CATALOG.values():
+            for label in seed.labels + seed.repo_labels:
+                await github_client.ensure_label(
+                    repository,
+                    GitHubLabelDefinition(
+                        name=label.name,
+                        color=label.color,
+                        description=label.description,
+                    ),
+                )
+            issue = await github_client.create_issue(
+                repository,
+                title=seed.title,
+                body=seed.render_body(),
+                labels=tuple(label.name for label in seed.labels),
+            )
+            delivery = GitHubDelivery(
+                delivery_id=f"simulate-{issue.number}",
+                event="issues",
+                action="opened",
+                repository=repository,
+                payload=GitHubIssuesPayload(
+                    action="opened",
+                    issue=issue,
+                    repository=GitHubRepository(full_name=repository),
+                    sender=GitHubUser(login="github-devin-automation"),
+                ),
+            )
+            event = TriggerEventData(
+                source="dashboard",
+                external_id=f"{repository}:{issue.number}",
+                event_type="issues",
+                action="opened",
                 subject_type="issue",
                 subject_id=str(issue.number),
                 subject_title=issue.title,

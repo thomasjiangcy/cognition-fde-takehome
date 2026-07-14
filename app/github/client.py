@@ -77,6 +77,25 @@ class GitHubClient:
         response.raise_for_status()
         return GitHubLabel.model_validate_json(response.content)
 
+    async def create_issue(
+        self,
+        repository: str,
+        *,
+        title: str,
+        body: str,
+        labels: tuple[str, ...],
+    ) -> GitHubIssue:
+        """Create an issue in the repository and return the validated issue.
+
+        https://docs.github.com/en/rest/issues/issues#create-an-issue
+        """
+        response = await self._http.post(
+            f"repos/{repository}/issues",
+            json={"title": title, "body": body, "labels": list(labels)},
+        )
+        response.raise_for_status()
+        return GitHubIssue.model_validate(response.json())
+
     async def add_label(
         self,
         repository: str,

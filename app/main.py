@@ -136,3 +136,11 @@ async def health() -> dict[str, str]:
 async def run_bug_fix(repository: str = "thomasjiangcy/superset") -> dict[str, int]:
     results = await dashboard_service.run_bug_fix(repository)
     return {"started": len(results)}
+
+
+@app.post("/api/jobs/simulate-issue", tags=["jobs"])
+async def simulate_issue_workflow(
+    repository: str = "thomasjiangcy/superset",
+) -> dict[str, int]:
+    results = await dashboard_service.simulate_issue_workflow(repository)
+    return {"started": len(results)}

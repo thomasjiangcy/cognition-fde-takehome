@@ -9,6 +9,7 @@ from app.github.models import GitHubLabelDefinition
 
 # These simulations cover the third-party GitHub REST API boundary:
 # List issues: https://docs.github.com/en/rest/issues/issues#list-repository-issues
+# Create an issue: https://docs.github.com/en/rest/issues/issues#create-an-issue
 # Get a label: https://docs.github.com/en/rest/issues/labels#get-a-label
 # Create a label: https://docs.github.com/en/rest/issues/labels#create-a-label
 # Add labels to an issue: https://docs.github.com/en/rest/issues/labels#add-labels-to-an-issue
@@ -108,3 +109,40 @@ async def test_add_label_posts_labels_to_issue() -> None:
     transport = httpx.MockTransport(handler)
     async with GitHubClient(SecretStr("test-token"), transport=transport) as client:
         await client.add_label("octocat/superset", 42, "devin:assigned")
+
+
+@pytest.mark.anyio
+async def test_create_issue_returns_validated_issue() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.method == "POST"
+        assert request.url.path == "/repos/octocat/superset/issues"
+        body = json.loads(request.content)
+        assert body["title"] == "Bug title"
+        assert body["body"] == "### Bug description\n\nBody"
+        assert body["labels"] == ["validation:required"]
+        return httpx.Response(
+            201,
+            json={
+                "number": 99,
+                "title": body["title"],
+                "body": body["body"],
+                "state": "open",
+                "html_url": "https://github.com/octocat/superset/issues/99",
+                "user": {"login": "octocat"},
+                "labels": [{"name": "validation:required"}],
+            },
+        )
+
+    transport = httpx.MockTransport(handler)
+    async with GitHubClient(SecretStr("test-token"), transport=transport) as client:
+        issue = await client.create_issue(
+            "octocat/superset",
+            title="Bug title",
+            body="### Bug description\n\nBody",
+            labels=("validation:required",),
+        )
+
+    assert issue.number == 99
+    assert issue.title == "Bug title"
+    assert issue.state == "open"
+    assert issue.labels[0].name == "validation:required"
