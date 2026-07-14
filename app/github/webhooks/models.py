@@ -1,5 +1,8 @@
 from dataclasses import dataclass
-from typing import Any
+
+type JsonValue = (
+    None | bool | int | float | str | list[JsonValue] | dict[str, JsonValue]
+)
 
 
 @dataclass(frozen=True)
@@ -10,4 +13,4 @@ class GitHubDelivery:
     event: str
     action: str | None
     repository: str | None
-    payload: dict[str, Any]
+    payload: dict[str, JsonValue]

@@ -10,18 +10,11 @@ def anyio_backend() -> str:
 
 
 @pytest.mark.anyio
-async def test_startup_and_health(monkeypatch: pytest.MonkeyPatch) -> None:
-    initialized = False
-
-    async def initialize_resources() -> None:
-        nonlocal initialized
-        initialized = True
-
-    monkeypatch.setattr(main, "initialize_resources", initialize_resources)
+async def test_startup_and_health() -> None:
     transport = ASGITransport(app=main.app)
 
     async with main.app.router.lifespan_context(main.app):
-        assert initialized
+        assert main.scheduler.running
         async with AsyncClient(transport=transport, base_url="http://test") as client:
             response = await client.get("/api/health")
             dashboard = await client.get("/")

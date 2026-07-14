@@ -2,6 +2,7 @@ import pytest
 
 from app.github.webhooks.models import GitHubDelivery
 from app.workflows.dispatcher import WorkflowDispatcher
+from app.workflows.initial_workflow import InitialWorkflow
 
 
 @pytest.fixture
@@ -9,33 +10,9 @@ def anyio_backend() -> str:
     return "asyncio"
 
 
-class MatchingWorkflow:
-    name = "matching-workflow"
-
-    def __init__(self) -> None:
-        self.ran = False
-
-    def matches(self, delivery: GitHubDelivery) -> bool:
-        return delivery.event == "issues"
-
-    async def run(self, delivery: GitHubDelivery) -> None:
-        self.ran = True
-
-
-class NonMatchingWorkflow:
-    name = "non-matching-workflow"
-
-    def matches(self, delivery: GitHubDelivery) -> bool:
-        return False
-
-    async def run(self, delivery: GitHubDelivery) -> None:
-        raise AssertionError("A non-matching workflow must not run")
-
-
 @pytest.mark.anyio
-async def test_dispatcher_selects_and_executes_matching_workflows() -> None:
-    matching_workflow = MatchingWorkflow()
-    dispatcher = WorkflowDispatcher([NonMatchingWorkflow(), matching_workflow])
+async def test_placeholder_workflow_is_not_selected() -> None:
+    dispatcher = WorkflowDispatcher([InitialWorkflow()])
     delivery = GitHubDelivery(
         delivery_id="delivery-id",
         event="issues",
@@ -47,5 +24,4 @@ async def test_dispatcher_selects_and_executes_matching_workflows() -> None:
     workflows = dispatcher.select(delivery)
     await dispatcher.execute(workflows, delivery)
 
-    assert [workflow.name for workflow in workflows] == ["matching-workflow"]
-    assert matching_workflow.ran
+    assert workflows == ()
