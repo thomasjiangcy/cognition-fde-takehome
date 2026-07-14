@@ -29,6 +29,16 @@ function externalLink(label, url) {
   return link;
 }
 
+function subjectNode(title, url) {
+  const node = url ? externalLink(title, url) : document.createElement("span");
+  if (!url) {
+    node.textContent = title;
+  }
+  node.className = "subject";
+  node.title = title;
+  return node;
+}
+
 function statusBadge(state) {
   const badge = document.createElement("span");
   badge.className = "badge";
@@ -65,9 +75,10 @@ function renderRuns(runs) {
 
   const rows = runs.map((run) => {
     const row = document.createElement("tr");
-    const subject = run.subject_url
-      ? externalLink(run.subject_title ?? run.event_type, run.subject_url)
-      : run.subject_title ?? run.event_type;
+    const subject = subjectNode(
+      run.subject_title ?? run.event_type,
+      run.subject_url,
+    );
     const session = run.devin_session_url
       ? externalLink("View session", run.devin_session_url)
       : "Not started";

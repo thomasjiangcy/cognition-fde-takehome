@@ -23,6 +23,14 @@
           transform: rotate(360deg);
         }
       }
+
+      .subject {
+        display: inline-block;
+        max-width: 60ch;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
     </style>
     <script src="{{ url_for('static', path='/dashboard.js') }}" defer></script>
   </head>
