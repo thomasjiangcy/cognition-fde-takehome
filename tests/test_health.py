@@ -15,6 +15,7 @@ async def test_startup_and_health() -> None:
 
     async with main.app.router.lifespan_context(main.app):
         assert main.scheduler.running
+        assert main.app.state.resources.playbook_ids == {}
         async with AsyncClient(transport=transport, base_url="http://test") as client:
             response = await client.get("/api/health")
             dashboard = await client.get("/")

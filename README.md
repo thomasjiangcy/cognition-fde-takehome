@@ -6,8 +6,10 @@ server-rendered dashboard, while APScheduler provides an in-memory scheduling
 primitive for the automation logic that will be added later.
 
 At startup, the application runs a resource initialization hook before starting
-the scheduler. The hook is currently a placeholder for future idempotent Devin
-blueprint and playbook setup.
+the scheduler. Registered Devin playbooks are reconciled by unique macro: the
+initializer creates missing playbooks, updates changed playbooks, and leaves
+matching playbooks untouched. No playbooks are registered yet, so the current
+scaffold does not contact Devin during startup.
 
 ## Setup
 
@@ -36,6 +38,7 @@ configured on the repository webhook.
 - `app/workflows` selects and runs zero or more workflows for each delivery.
 - `app/devin` is the first-class home for Devin clients, resources, and
   sessions.
+- `playbooks` contains Markdown bodies for application-managed Devin playbooks.
 - `app/initialization.py` is the startup boundary for idempotent Devin resource
   setup.
 

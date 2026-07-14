@@ -23,6 +23,7 @@ ENV PATH="/app/.venv/bin:$PATH" \
 
 COPY --from=backend-builder /app/.venv /app/.venv
 COPY app ./app
+COPY playbooks ./playbooks
 
 EXPOSE 8080
 

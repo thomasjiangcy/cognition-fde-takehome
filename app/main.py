@@ -17,7 +17,7 @@ scheduler = AsyncIOScheduler(timezone="UTC")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    await initialize_resources()
+    app.state.resources = await initialize_resources()
     app.state.scheduler = scheduler
     scheduler.start()
     try:
