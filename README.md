@@ -277,9 +277,10 @@ mise exec -- uv run ty check
 
 ## Git hooks
 
-Lefthook runs Ruff's safe fixes and formatter on staged Python files before
-each commit, then stages the resulting files. Before each push, it runs the
-Ruff checks, type checker, and test suite in parallel.
+Lefthook validates each commit message with Commitizen's Conventional Commits
+rules. It also runs Ruff's safe fixes and formatter on staged Python files before
+each commit, then stages the resulting files. Before each push, it runs the Ruff
+checks, type checker, and test suite in parallel.
 
 Lefthook preserves unstaged changes while applying `stage_fixed`, so partially
 staged files remain partially staged after formatting. Run the hooks manually

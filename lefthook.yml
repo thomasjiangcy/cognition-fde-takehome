@@ -1,3 +1,8 @@
+commit-msg:
+  jobs:
+    - name: Conventional Commit
+      run: mise exec -- uv run --frozen cz check --commit-msg-file {1}
+
 pre-commit:
   jobs:
     - name: uv lockfile
