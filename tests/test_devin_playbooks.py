@@ -8,6 +8,8 @@ from app.devin.models import (
     ManagedPlaybookDefinition,
 )
 from app.devin.playbooks import DevinPlaybooks, DuplicateManagedPlaybookError
+from app.initialization import MANAGED_PLAYBOOKS
+from app.workflows.initial_workflow import BUG_INVESTIGATION_PLAYBOOK
 
 # These simulations cover the third-party Devin API v3 network boundary and use
 # the documented organization playbook schemas:
@@ -19,6 +21,19 @@ from app.devin.playbooks import DevinPlaybooks, DuplicateManagedPlaybookError
 @pytest.fixture
 def anyio_backend() -> str:
     return "asyncio"
+
+
+def test_bug_investigation_playbook_is_registered_without_structured_output() -> None:
+    assert MANAGED_PLAYBOOKS == (BUG_INVESTIGATION_PLAYBOOK,)
+
+    definition = BUG_INVESTIGATION_PLAYBOOK.load()
+
+    assert definition.title == "Investigate Superset bug reports"
+    assert definition.macro == "!investigate-superset-bug"
+    assert definition.structured_output_schema is None
+    assert "Post the final report as a comment" in definition.body
+    assert "record a short video" in definition.body
+    assert "Do not implement a fix" in definition.body
 
 
 def _definition(
@@ -163,3 +178,24 @@ async def test_reconciliation_rejects_duplicate_remote_macros() -> None:
     ) as client:
         with pytest.raises(DuplicateManagedPlaybookError):
             await DevinPlaybooks(client, "org-test").ensure_all((desired,))
+
+
+@pytest.mark.anyio
+async def test_reconciliation_rejects_duplicate_desired_macros_before_request() -> None:
+    methods: list[str] = []
+
+    def handle_devin_request(request: httpx.Request) -> httpx.Response:
+        methods.append(request.method)
+        return httpx.Response(200, content=_page())
+
+    desired = _definition()
+    transport = httpx.MockTransport(handle_devin_request)
+    async with DevinClient(
+        "cog_test",
+        base_url="https://api.devin.test/v3/",
+        transport=transport,
+    ) as client:
+        with pytest.raises(DuplicateManagedPlaybookError):
+            await DevinPlaybooks(client, "org-test").ensure_all((desired, desired))
+
+    assert methods == []

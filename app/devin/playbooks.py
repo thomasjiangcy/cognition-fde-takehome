@@ -32,10 +32,6 @@ class ManagedPlaybookSpec:
         )
 
 
-# Add playbook specifications here when the first workflow is defined.
-MANAGED_PLAYBOOKS: tuple[ManagedPlaybookSpec, ...] = ()
-
-
 class DuplicateManagedPlaybookError(RuntimeError):
     """Raised when a managed macro does not identify exactly one playbook."""
 
@@ -94,13 +90,16 @@ class DevinPlaybooks:
         self,
         desired_playbooks: tuple[ManagedPlaybookDefinition, ...],
     ) -> dict[str, str]:
+        desired_macros: set[str] = set()
+        for desired in desired_playbooks:
+            if desired.macro in desired_macros:
+                raise DuplicateManagedPlaybookError(desired.macro)
+            desired_macros.add(desired.macro)
+
         existing = list(await self.list_all())
         resolved: dict[str, str] = {}
 
         for desired in desired_playbooks:
-            if desired.macro in resolved:
-                raise DuplicateManagedPlaybookError(desired.macro)
-
             ensured = await self._ensure_one(desired, existing)
             resolved[desired.macro] = ensured.playbook_id
             existing = [

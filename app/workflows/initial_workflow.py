@@ -1,4 +1,11 @@
+from app.devin.playbooks import PLAYBOOKS_DIR, ManagedPlaybookSpec
 from app.webhooks.github.models import GitHubDelivery, GitHubIssuesPayload
+
+BUG_INVESTIGATION_PLAYBOOK = ManagedPlaybookSpec(
+    path=PLAYBOOKS_DIR / "bug-investigation.devin.md",
+    title="Investigate Superset bug reports",
+    macro="!investigate-superset-bug",
+)
 
 
 class BugInvestigationWorkflow:

@@ -2,13 +2,18 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
 
+import httpx
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from app.config import load_github_webhook_settings, load_observability_settings
+from app.config import (
+    DevinSettings,
+    load_github_webhook_settings,
+    load_observability_settings,
+)
 from app.initialization import initialize_resources
 from app.observability import Observability, configure_observability
 from app.webhooks.github.router import create_github_webhook_router
@@ -21,8 +26,16 @@ observability: Observability | None = None
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    app.state.resources = await initialize_resources()
+async def lifespan(
+    app: FastAPI,
+    *,
+    devin_settings: DevinSettings | None = None,
+    devin_transport: httpx.AsyncBaseTransport | None = None,
+) -> AsyncIterator[None]:
+    app.state.resources = await initialize_resources(
+        settings=devin_settings,
+        transport=devin_transport,
+    )
     app.state.scheduler = scheduler
     scheduler.start()
     try:
