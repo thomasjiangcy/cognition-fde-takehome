@@ -6,7 +6,7 @@ import httpx
 from app.config import DevinSettings, load_devin_settings
 from app.devin.client import DevinClient
 from app.devin.playbooks import DevinPlaybooks, ManagedPlaybookSpec
-from app.workflows.initial_workflow import BUG_INVESTIGATION_PLAYBOOK
+from app.workflows.bug_investigation import BUG_INVESTIGATION_PLAYBOOK
 
 logger = logging.getLogger(__name__)
 

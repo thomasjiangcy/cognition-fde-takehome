@@ -1,10 +1,12 @@
 import logging
+from datetime import UTC, datetime
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, BackgroundTasks, Header, HTTPException, Request, status
 from pydantic import BaseModel, ConfigDict, ValidationError
 
 from app.config import GitHubWebhookSettings
+from app.webhooks.github.events import to_trigger_event
 from app.webhooks.github.models import (
     GitHubWebhookHeaders,
     parse_github_delivery,
@@ -124,9 +126,17 @@ def create_github_webhook_router(
                 "github_delivery_status": delivery_status,
             },
         )
+        prepared_workflows = await dispatcher.prepare(
+            delivery,
+            to_trigger_event(delivery, datetime.now(UTC)),
+        )
         # This in-process handoff is intentionally non-durable for the current service.
         # Use durable execution in production so accepted deliveries survive termination.
-        background_tasks.add_task(dispatcher.dispatch, delivery)
+        background_tasks.add_task(
+            dispatcher.execute,
+            prepared_workflows,
+            delivery,
+        )
         return GitHubWebhookAcknowledgement(
             delivery_id=delivery.delivery_id,
             event=delivery.event,

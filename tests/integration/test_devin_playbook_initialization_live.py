@@ -9,7 +9,7 @@ from app.devin.client import DevinClient
 from app.devin.models import DevinPlaybook
 from app.devin.playbooks import DevinPlaybooks, ManagedPlaybookSpec
 from app.initialization import initialize_resources
-from app.workflows.initial_workflow import BUG_INVESTIGATION_PLAYBOOK
+from app.workflows.bug_investigation import BUG_INVESTIGATION_PLAYBOOK
 
 pytestmark = [pytest.mark.anyio, pytest.mark.live]
 

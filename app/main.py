@@ -3,25 +3,32 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 import httpx
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from app.config import (
+    DatabaseSettings,
     DevinSettings,
+    load_database_settings,
+    load_devin_settings,
     load_github_webhook_settings,
     load_observability_settings,
 )
+from app.database import Database
+from app.devin.client import DevinClient
+from app.devin.sessions import DevinSessions
 from app.initialization import initialize_resources
 from app.observability import Observability, configure_observability
 from app.webhooks.github.router import create_github_webhook_router
+from app.workflows.bug_investigation import (
+    BUG_INVESTIGATION_PLAYBOOK,
+    BugInvestigationWorkflow,
+)
 from app.workflows.dispatcher import WorkflowDispatcher
-from app.workflows.initial_workflow import BugInvestigationWorkflow
 
 APP_DIR = Path(__file__).resolve().parent
-scheduler = AsyncIOScheduler(timezone="UTC")
 observability: Observability | None = None
 
 
@@ -29,33 +36,52 @@ observability: Observability | None = None
 async def lifespan(
     app: FastAPI,
     *,
+    database_settings: DatabaseSettings | None = None,
     devin_settings: DevinSettings | None = None,
     devin_transport: httpx.AsyncBaseTransport | None = None,
 ) -> AsyncIterator[None]:
-    app.state.resources = await initialize_resources(
-        settings=devin_settings,
+    resolved_devin_settings = (
+        devin_settings if devin_settings is not None else load_devin_settings()
+    )
+    resources = await initialize_resources(
+        settings=resolved_devin_settings,
         transport=devin_transport,
     )
-    app.state.scheduler = scheduler
-    scheduler.start()
+    app.state.resources = resources
+    database = Database.create(
+        database_settings if database_settings is not None else load_database_settings()
+    )
     try:
-        yield
+        async with DevinClient(
+            api_key=resolved_devin_settings.devin_api_key,
+            transport=devin_transport,
+        ) as client:
+            dispatcher.configure(
+                database,
+                [
+                    BugInvestigationWorkflow(
+                        DevinSessions(client, resolved_devin_settings.devin_org_id),
+                        resources.playbook_ids[BUG_INVESTIGATION_PLAYBOOK.macro],
+                    )
+                ],
+            )
+            yield
     finally:
-        scheduler.shutdown(wait=False)
+        await database.close()
         if observability is not None:
             observability.shutdown()
 
 
 app = FastAPI(
     title="GitHub to Devin Automation Service",
-    description="Runs webhook-driven, scheduled, and manual GitHub-to-Devin workflows.",
+    description="Runs webhook-driven and manual GitHub-to-Devin workflows.",
     version="0.1.0",
     docs_url="/api/docs",
     openapi_url="/api/openapi.json",
     lifespan=lifespan,
 )
 observability = configure_observability(app, load_observability_settings())
-dispatcher = WorkflowDispatcher([BugInvestigationWorkflow()])
+dispatcher = WorkflowDispatcher()
 app.include_router(
     create_github_webhook_router(load_github_webhook_settings(), dispatcher)
 )
@@ -66,11 +92,7 @@ templates = Jinja2Templates(directory=APP_DIR / "templates")
 
 @app.get("/", response_class=HTMLResponse, include_in_schema=False)
 async def dashboard(request: Request) -> HTMLResponse:
-    return templates.TemplateResponse(
-        request=request,
-        name="index.html",
-        context={"scheduler_running": scheduler.running},
-    )
+    return templates.TemplateResponse(request=request, name="index.html")
 
 
 @app.get("/api/health", tags=["system"])

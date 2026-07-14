@@ -1,15 +1,9 @@
 services:
   app:
     command:
-      - uvicorn
-      - app.main:app
-      - --host
-      - 0.0.0.0
-      - --port
-      - "8080"
-      - --reload
-      - --reload-dir
-      - /app/app
+      - sh
+      - -c
+      - alembic upgrade head && exec uvicorn app.main:app --host 0.0.0.0 --port 8080 --reload --reload-dir /app/app
     volumes:
       - ./app:/app/app
       - ./playbooks:/app/playbooks:ro

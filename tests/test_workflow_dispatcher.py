@@ -1,7 +1,8 @@
-import logging
-
+import httpx
 import pytest
 
+from app.devin.client import DevinClient
+from app.devin.sessions import DevinSessions
 from app.webhooks.github.models import (
     GitHubDelivery,
     GitHubIssue,
@@ -9,8 +10,8 @@ from app.webhooks.github.models import (
     GitHubRepository,
     GitHubUser,
 )
+from app.workflows.bug_investigation import BugInvestigationWorkflow
 from app.workflows.dispatcher import WorkflowDispatcher
-from app.workflows.initial_workflow import BugInvestigationWorkflow
 
 
 @pytest.fixture
@@ -46,28 +47,27 @@ def _issues_delivery(
     )
 
 
+def _unexpected_request(request: httpx.Request) -> httpx.Response:
+    raise AssertionError(f"Unexpected Devin request: {request.method} {request.url}")
+
+
 @pytest.mark.anyio
-async def test_dispatches_opened_issue_with_bug_description(
-    caplog: pytest.LogCaptureFixture,
-) -> None:
-    workflow = BugInvestigationWorkflow()
-    dispatcher = WorkflowDispatcher([workflow])
-    delivery = _issues_delivery(
-        "### Bug description\n\nThe dimension only applies to Query A."
-    )
-    caplog.set_level(logging.INFO, logger="app.workflows.dispatcher")
+async def test_selects_opened_issue_with_bug_description() -> None:
+    transport = httpx.MockTransport(_unexpected_request)
+    async with DevinClient("cog_test", transport=transport) as client:
+        workflow = BugInvestigationWorkflow(
+            DevinSessions(client, "org-test"),
+            "playbook-bug-investigation",
+        )
+        dispatcher = WorkflowDispatcher([workflow])
+        delivery = _issues_delivery(
+            "### Bug description\n\nThe dimension only applies to Query A."
+        )
 
-    selected = dispatcher.select(delivery)
-    await dispatcher.dispatch(delivery)
-
-    assert selected == (workflow,)
-    assert (
-        "app.workflows.dispatcher",
-        logging.INFO,
-        "Executing workflow",
-    ) in caplog.record_tuples
+        assert dispatcher.select(delivery) == (workflow,)
 
 
+@pytest.mark.anyio
 @pytest.mark.parametrize(
     "delivery",
     [
@@ -76,7 +76,13 @@ async def test_dispatches_opened_issue_with_bug_description(
         _issues_delivery("### Bug description", action="edited"),
     ],
 )
-def test_does_not_select_non_matching_issue(delivery: GitHubDelivery) -> None:
-    dispatcher = WorkflowDispatcher([BugInvestigationWorkflow()])
+async def test_does_not_select_non_matching_issue(delivery: GitHubDelivery) -> None:
+    transport = httpx.MockTransport(_unexpected_request)
+    async with DevinClient("cog_test", transport=transport) as client:
+        workflow = BugInvestigationWorkflow(
+            DevinSessions(client, "org-test"),
+            "playbook-bug-investigation",
+        )
+        dispatcher = WorkflowDispatcher([workflow])
 
-    assert dispatcher.select(delivery) == ()
+        assert dispatcher.select(delivery) == ()

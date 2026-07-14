@@ -47,6 +47,9 @@ class DevinClient:
         response.raise_for_status()
         return response.content
 
+    async def close(self) -> None:
+        await self._http.aclose()
+
     async def __aenter__(self) -> Self:
         return self
 
@@ -56,4 +59,4 @@ class DevinClient:
         exc_value: BaseException | None,
         traceback: TracebackType | None,
     ) -> None:
-        await self._http.aclose()
+        await self.close()

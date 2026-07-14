@@ -1,4 +1,4 @@
-from pydantic import AnyHttpUrl, Field, SecretStr
+from pydantic import AnyHttpUrl, Field, PostgresDsn, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -18,6 +18,23 @@ class DevinSettings(BaseSettings):
 
 def load_devin_settings() -> DevinSettings:
     return DevinSettings()
+
+
+class DatabaseSettings(BaseSettings):
+    """Strict PostgreSQL settings loaded from the environment or local .env file."""
+
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+        strict=True,
+    )
+
+    database_url: PostgresDsn
+
+
+def load_database_settings() -> DatabaseSettings:
+    return DatabaseSettings()
 
 
 class ObservabilitySettings(BaseSettings):

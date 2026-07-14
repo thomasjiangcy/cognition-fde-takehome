@@ -5,40 +5,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="description" content="GitHub-to-Devin automation dashboard">
     <title>Devin automation dashboard</title>
-    <link rel="stylesheet" href="{{ url_for('static', path='/app.css') }}">
   </head>
   <body>
     <header>
-      <a class="brand" href="/">
-        <span class="brand-mark" aria-hidden="true">D</span>
-        <span>Devin automation</span>
-      </a>
-      <span class="status">
-        <span class="status-dot" aria-hidden="true"></span>
-        Scheduler {{ "running" if scheduler_running else "stopped" }}
-      </span>
+      <h1>Devin automation dashboard</h1>
+      <nav aria-label="Application">
+        <a href="/api/docs">API documentation</a>
+      </nav>
     </header>
 
     <main>
-      <p class="eyebrow">GitHub → Devin</p>
-      <h1>Automation,<br>without the machinery.</h1>
-      <p class="lede">
-        Webhook, scheduled, and manual runs will appear here as the workflow
-        takes shape.
-      </p>
-
-      <section>
-        <div>
-          <p class="section-label">Foundation</p>
-          <h2>Ready for the first job</h2>
-        </div>
-        <p>
-          FastAPI serves this page directly, with an in-memory scheduler and a
-          public-tunnel option ready for the GitHub-to-Devin automation logic.
-        </p>
-      </section>
-
-      <a class="docs-link" href="/api/docs">View API documentation →</a>
+      <h2>Workflow runs</h2>
+      <p>Webhook and manual runs will appear here as workflows execute.</p>
     </main>
   </body>
 </html>

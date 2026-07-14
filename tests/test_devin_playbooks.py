@@ -9,7 +9,7 @@ from app.devin.models import (
 )
 from app.devin.playbooks import DevinPlaybooks, DuplicateManagedPlaybookError
 from app.initialization import MANAGED_PLAYBOOKS
-from app.workflows.initial_workflow import BUG_INVESTIGATION_PLAYBOOK
+from app.workflows.bug_investigation import BUG_INVESTIGATION_PLAYBOOK
 
 # These simulations cover the third-party Devin API v3 network boundary and use
 # the documented organization playbook schemas:

@@ -1,11 +1,11 @@
 [project]
 name = "github-devin-automation"
 version = "0.1.0"
-description = "FastAPI service for webhook-driven, scheduled, and manual GitHub-to-Devin automation."
+description = "FastAPI service for webhook-driven and manual GitHub-to-Devin automation."
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
-    "apscheduler==3.11.3",
+    "alembic==1.18.5",
     "fastapi==0.139.0",
     "httpx==0.28.1",
     "jinja2==3.1.6",
@@ -14,8 +14,10 @@ dependencies = [
     "opentelemetry-instrumentation-fastapi==0.64b0",
     "opentelemetry-instrumentation-httpx==0.64b0",
     "opentelemetry-sdk==1.43.0",
+    "psycopg[binary]==3.3.4",
     "pydantic==2.13.4",
     "pydantic-settings==2.14.2",
+    "sqlalchemy[asyncio]==2.0.51",
     "uvicorn==0.51.0",
 ]
 
@@ -24,6 +26,7 @@ dev = [
     "commitizen==4.16.4",
     "pytest==9.1.1",
     "ruff==0.15.21",
+    "testcontainers[postgres]==4.14.2",
     "ty==0.0.59",
 ]
 
@@ -31,8 +34,9 @@ dev = [
 name = "cz_conventional_commits"
 
 [tool.pytest.ini_options]
-addopts = ["-m", "not live"]
+addopts = ["-m", "not live and not database"]
 markers = [
+    "database: exercises persistence against Testcontainers PostgreSQL",
     "live: calls real third-party APIs and may mutate isolated test resources",
 ]
 pythonpath = ["."]

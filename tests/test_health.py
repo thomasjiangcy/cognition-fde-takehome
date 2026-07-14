@@ -1,9 +1,10 @@
 import httpx
 import pytest
 from httpx import ASGITransport, AsyncClient
+from pydantic import PostgresDsn
 
 from app import main
-from app.config import DevinSettings
+from app.config import DatabaseSettings, DevinSettings
 from app.devin.models import (
     DevinPlaybook,
     DevinPlaybookPage,
@@ -17,7 +18,8 @@ def anyio_backend() -> str:
 
 
 @pytest.mark.anyio
-async def test_startup_and_health() -> None:
+@pytest.mark.database
+async def test_startup_and_health(migrated_database_url: str) -> None:
     methods: list[str] = []
 
     # Simulates Devin's documented organization playbook list and create endpoints:
@@ -59,10 +61,12 @@ async def test_startup_and_health() -> None:
 
     async with main.lifespan(
         main.app,
+        database_settings=DatabaseSettings(
+            database_url=PostgresDsn(migrated_database_url)
+        ),
         devin_settings=settings,
         devin_transport=devin_transport,
     ):
-        assert main.scheduler.running
         assert main.app.state.resources.playbook_ids == {
             "!investigate-superset-bug": "playbook-bug-investigation"
         }
@@ -77,4 +81,4 @@ async def test_startup_and_health() -> None:
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
     assert dashboard.status_code == 200
-    assert "Scheduler running" in dashboard.text
+    assert "Devin automation dashboard" in dashboard.text
