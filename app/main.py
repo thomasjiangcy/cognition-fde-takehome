@@ -8,10 +8,10 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from app.config import load_observability_settings
+from app.config import load_github_webhook_settings, load_observability_settings
 from app.initialization import initialize_resources
 from app.observability import Observability, configure_observability
-from app.webhooks.github.router import router as github_webhook_router
+from app.webhooks.github.router import create_github_webhook_router
 
 APP_DIR = Path(__file__).resolve().parent
 scheduler = AsyncIOScheduler(timezone="UTC")
@@ -40,7 +40,7 @@ app = FastAPI(
     lifespan=lifespan,
 )
 observability = configure_observability(app, load_observability_settings())
-app.include_router(github_webhook_router)
+app.include_router(create_github_webhook_router(load_github_webhook_settings()))
 app.mount("/static", StaticFiles(directory=APP_DIR / "static"), name="static")
 
 templates = Jinja2Templates(directory=APP_DIR / "templates")

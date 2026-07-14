@@ -17,8 +17,8 @@ Install the configured tools and Python dependencies, then enable the Git hooks:
 
 ```shell
 mise install
-uv sync
-lefthook install
+mise exec -- uv sync
+mise exec -- lefthook install
 ```
 
 Copy `sample.env` to `.env` and fill in the values needed for the workflow:
@@ -75,8 +75,8 @@ Find the generated public URL in the tunnel logs:
 docker compose logs tunnel
 ```
 
-Look for an `https://<random-name>.trycloudflare.com` URL. The planned GitHub
-webhook URL will be:
+Look for an `https://<random-name>.trycloudflare.com` URL. The GitHub webhook
+URL is:
 
 ```text
 https://<random-name>.trycloudflare.com/api/webhooks/github
@@ -114,7 +114,7 @@ docker compose -f compose.yaml down
 The project uses pytest, including AnyIO support for async application tests:
 
 ```shell
-uv run pytest
+mise exec -- uv run pytest
 ```
 
 ## Demo
@@ -125,6 +125,7 @@ fork. Set these values in `.env` before running a scenario:
 ```dotenv
 GITHUB_REPOSITORY=thomasjiangcy/superset
 GITHUB_TOKEN=<fine-grained token with Issues write permission>
+GITHUB_WEBHOOK_SECRET=<high-entropy webhook secret>
 ```
 
 ### Scenario 1: investigate an unvalidated bug report
@@ -137,7 +138,7 @@ maintainer to begin implementation.
 Create the issue in the configured fork:
 
 ```shell
-uv run scripts/seed_issues.py mixed-chart-matrixify
+mise exec -- uv run scripts/seed_issues.py mixed-chart-matrixify
 ```
 
 Once the webhook-driven workflow is implemented and registered, the complete
@@ -152,9 +153,15 @@ demo flow will be:
 5. Devin investigates the report, attempts to reproduce it, and returns
    evidence that can be reviewed before implementation begins.
 
-Only the issue-seeding step is implemented currently. Webhook classification,
-workflow routing, and the Devin investigation handoff will be added as the
-scenario is built out.
+Issue seeding plus authenticated webhook receipt and parsing are implemented.
+Bug-report classification, workflow routing, and the Devin investigation
+handoff will be added next.
+
+Configure the fork's repository webhook with the public URL above, content type
+`application/json`, the same `GITHUB_WEBHOOK_SECRET`, and the **Issues** event.
+GitHub's registration `ping` and subsequent deliveries are verified using the
+raw request body and `X-Hub-Signature-256`; valid deliveries receive a `202`
+acknowledgement without starting a workflow yet.
 
 The script creates the upstream `validation:required` label if necessary and
 copies the upstream issue title and body exactly. It will not create another
@@ -165,7 +172,7 @@ webhook.
 Preview the exact issue payload without contacting GitHub:
 
 ```shell
-uv run scripts/seed_issues.py mixed-chart-matrixify --dry-run
+mise exec -- uv run scripts/seed_issues.py mixed-chart-matrixify --dry-run
 ```
 
 Use `--repo OWNER/REPOSITORY` to override `GITHUB_REPOSITORY`, for example when
@@ -176,15 +183,15 @@ an assessor runs the scenario against their own fork.
 Format Python code with Ruff:
 
 ```shell
-uv run ruff format .
+mise exec -- uv run ruff format .
 ```
 
 Run formatting, linting, and type-checking verification:
 
 ```shell
-uv run ruff format --check .
-uv run ruff check .
-uv run ty check
+mise exec -- uv run ruff format --check .
+mise exec -- uv run ruff check .
+mise exec -- uv run ty check
 ```
 
 ## Git hooks
@@ -198,6 +205,6 @@ staged files remain partially staged after formatting. Run the hooks manually
 across the repository with:
 
 ```shell
-lefthook run pre-commit --all-files --no-stage-fixed
-lefthook run pre-push --force
+mise exec -- lefthook run pre-commit --all-files --no-stage-fixed
+mise exec -- lefthook run pre-push --force
 ```

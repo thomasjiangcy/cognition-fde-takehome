@@ -1,6 +1,6 @@
 import pytest
 
-from app.webhooks.github.models import GitHubDelivery
+from app.webhooks.github.models import GitHubDelivery, GitHubUnknownPayload
 from app.workflows.dispatcher import WorkflowDispatcher
 from app.workflows.initial_workflow import InitialWorkflow
 
@@ -18,7 +18,7 @@ async def test_placeholder_workflow_is_not_selected() -> None:
         event="issues",
         action="opened",
         repository="owner/repository",
-        payload={},
+        payload=GitHubUnknownPayload({}),
     )
 
     workflows = dispatcher.select(delivery)

@@ -1,4 +1,4 @@
-from pydantic import AnyHttpUrl, Field
+from pydantic import AnyHttpUrl, Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -30,3 +30,15 @@ class ObservabilitySettings(BaseSettings):
 
 def load_observability_settings() -> ObservabilitySettings:
     return ObservabilitySettings()
+
+
+class GitHubWebhookSettings(BaseSettings):
+    """Optional webhook secret read from the container process environment."""
+
+    model_config = SettingsConfigDict(extra="ignore", strict=True)
+
+    github_webhook_secret: SecretStr | None = None
+
+
+def load_github_webhook_settings() -> GitHubWebhookSettings:
+    return GitHubWebhookSettings()
