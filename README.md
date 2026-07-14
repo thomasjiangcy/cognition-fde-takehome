@@ -149,9 +149,8 @@ workflow, and starts a Devin session with the managed playbook and issue context
 
 The script creates the upstream `validation:required` label and any outcome
 labels (`validation:validated`, `#bug:cant-reproduce`) if necessary and copies
-the upstream issue title and body exactly. It will not create another copy while
-an exact match remains open. Close the previous demo issue before rerunning the
-scenario to create a fresh issue and emit another `opened` webhook.
+the upstream issue title and body exactly. Each run creates a fresh issue and
+emits another `opened` webhook.
 
 ## Structure
 

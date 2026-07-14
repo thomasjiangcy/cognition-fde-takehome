@@ -17,7 +17,6 @@ from pydantic import (
     ConfigDict,
     Field,
     SecretStr,
-    TypeAdapter,
     ValidationError,
 )
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -189,7 +188,6 @@ SEED_CATALOG: dict[str, SeedIssue] = {
 
 @dataclass(frozen=True)
 class SeedResult:
-    created: bool
     issue_number: int
     issue_url: str
 
@@ -199,8 +197,6 @@ class GitHubAuthenticationError(RuntimeError):
 
 
 class GitHubIssueClient(Protocol):
-    async def list_issues(self, repository: Repository) -> list[GitHubIssue]: ...
-
     async def ensure_label(
         self,
         repository: Repository,
@@ -236,24 +232,6 @@ class GitHubClient:
             timeout=timeout_seconds,
             transport=transport,
         )
-
-    async def list_issues(self, repository: Repository) -> list[GitHubIssue]:
-        issues: list[GitHubIssue] = []
-        page = 1
-        while True:
-            response = await self._http.get(
-                f"repos/{repository.full_name}/issues",
-                params={"state": "open", "per_page": 100, "page": page},
-            )
-            response.raise_for_status()
-            batch = TypeAdapter(list[GitHubIssue]).validate_json(
-                response.content,
-                strict=True,
-            )
-            issues.extend(batch)
-            if len(batch) < 100:
-                return issues
-            page += 1
 
     async def ensure_label(
         self,
@@ -308,19 +286,6 @@ class GitHubCliClient:
     def __init__(self, executable: str) -> None:
         self._executable = executable
 
-    async def list_issues(self, repository: Repository) -> list[GitHubIssue]:
-        content = await self._api(
-            "GET",
-            f"repos/{repository.full_name}/issues",
-            fields=("state=open", "per_page=100"),
-            paginate=True,
-        )
-        pages = TypeAdapter(list[list[GitHubIssue]]).validate_json(
-            self._require_content(content),
-            strict=True,
-        )
-        return [issue for page in pages for issue in page]
-
     async def ensure_label(
         self,
         repository: Repository,
@@ -372,12 +337,9 @@ class GitHubCliClient:
         *,
         fields: tuple[str, ...] = (),
         request_body: bytes | None = None,
-        paginate: bool = False,
         check: bool = True,
     ) -> bytes | None:
         command = [self._executable, "api", "--method", method]
-        if paginate:
-            command.extend(("--paginate", "--slurp"))
         command.append(path)
         for field in fields:
             command.extend(("--field", field))
@@ -424,15 +386,7 @@ async def seed_issue(
     repository: Repository,
     seed: SeedIssue,
 ) -> SeedResult:
-    issues = await client.list_issues(repository)
     seed_body = seed.render_body()
-    for issue in issues:
-        if issue.title == seed.title and issue.body == seed_body:
-            return SeedResult(
-                created=False,
-                issue_number=issue.number,
-                issue_url=issue.html_url,
-            )
 
     for label in seed.labels + seed.repo_labels:
         await client.ensure_label(repository, label)
@@ -446,7 +400,6 @@ async def seed_issue(
         ),
     )
     return SeedResult(
-        created=True,
         issue_number=issue.number,
         issue_url=issue.html_url,
     )
@@ -559,8 +512,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(f"error: {error}", file=sys.stderr)
         return 2
     for result in results:
-        action = "Created" if result.created else "Already present"
-        print(f"{action}: {result.issue_url} (issue #{result.issue_number})")
+        print(f"Created: {result.issue_url} (issue #{result.issue_number})")
     return 0
 
 

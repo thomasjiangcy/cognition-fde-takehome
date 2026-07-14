@@ -31,9 +31,6 @@ async def test_seed_creates_missing_label_and_issue() -> None:
 
     def github_handler(request: httpx.Request) -> httpx.Response:
         requested_paths.append(request.url.path)
-        if request.method == "GET" and request.url.path.endswith("/issues"):
-            assert request.url.params["state"] == "open"
-            return httpx.Response(200, json=[])
         if request.method == "GET" and "/labels/" in request.url.path:
             return httpx.Response(404, json={"message": "Not Found"})
         if request.method == "POST" and request.url.path.endswith("/labels"):
@@ -73,10 +70,8 @@ async def test_seed_creates_missing_label_and_issue() -> None:
             seed,
         )
 
-    assert result.created is True
     assert result.issue_number == 1
     assert requested_paths == [
-        "/repos/thomasjiangcy/superset/issues",
         "/repos/thomasjiangcy/superset/labels/validation:required",
         "/repos/thomasjiangcy/superset/labels",
         "/repos/thomasjiangcy/superset/labels/validation:validated",
@@ -90,43 +85,6 @@ async def test_seed_creates_missing_label_and_issue() -> None:
 
 
 @pytest.mark.anyio
-async def test_seed_reuses_open_issue_with_exact_content() -> None:
-    seed = SEED_CATALOG["mixed-chart-matrixify"]
-    request_count = 0
-
-    def github_handler(request: httpx.Request) -> httpx.Response:
-        nonlocal request_count
-        request_count += 1
-        return httpx.Response(
-            200,
-            json=[
-                {
-                    "number": 7,
-                    "title": seed.title,
-                    "body": seed.render_body(),
-                    "html_url": "https://github.com/thomasjiangcy/superset/issues/7",
-                },
-            ],
-        )
-
-    transport = httpx.MockTransport(github_handler)
-    async with GitHubClient(
-        SecretStr("test-token"),
-        base_url="https://api.github.test/",
-        transport=transport,
-    ) as client:
-        result = await seed_issue(
-            client,
-            Repository.parse("thomasjiangcy/superset"),
-            seed,
-        )
-
-    assert result.created is False
-    assert result.issue_number == 7
-    assert request_count == 1
-
-
-@pytest.mark.anyio
 async def test_seed_uses_gh_api_contract(tmp_path: Path) -> None:
     executable = tmp_path / "gh"
     executable.write_text(
@@ -137,9 +95,6 @@ import sys
 arguments = sys.argv[1:]
 method = arguments[arguments.index("--method") + 1]
 path = next(argument for argument in arguments if argument.startswith("repos/"))
-if "--paginate" in arguments:
-    print("[[]]")
-    raise SystemExit(0)
 if method == "GET" and "/labels/" in path:
     raise SystemExit(1)
 payload = json.load(sys.stdin)
@@ -157,7 +112,6 @@ print(json.dumps(payload))
         SEED_CATALOG["mixed-chart-matrixify"],
     )
 
-    assert result.created is True
     assert result.issue_number == 3
     assert result.issue_url == "https://github.com/thomasjiangcy/superset/issues/3"
 
