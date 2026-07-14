@@ -68,6 +68,35 @@ Stop and remove the container with:
 docker rm -f github-devin-webhooks
 ```
 
+## Run with a public development URL
+
+Docker Compose starts the application and a Cloudflare Quick Tunnel together:
+
+```shell
+docker compose up -d --build
+```
+
+Find the generated public URL in the tunnel logs:
+
+```shell
+docker compose logs tunnel
+```
+
+Look for an `https://<random-name>.trycloudflare.com` URL. The dashboard and
+API are available through that hostname; the future GitHub webhook endpoint
+will use a URL such as
+`https://<random-name>.trycloudflare.com/api/webhooks/github`.
+
+Quick Tunnel hostnames are temporary and normally change when the tunnel is
+recreated. A named Cloudflare Tunnel can be added later if the webhook needs a
+stable hostname.
+
+Stop both services with:
+
+```shell
+docker compose down
+```
+
 ## Test
 
 ```shell
