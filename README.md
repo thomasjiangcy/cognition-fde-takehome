@@ -1,16 +1,17 @@
 # GitHub to Devin webhook service
 
-A small FastAPI service that will receive GitHub webhooks and start Devin
-sessions. The webhook contract and Devin integration will be added as their
-requirements are defined.
+A FastAPI service that will receive GitHub webhooks and start Devin sessions,
+with a React and Vite frontend for reporting. The webhook contract and Devin
+integration will be added as their requirements are defined.
 
 ## Setup
 
-Install the configured Python and `uv` versions, then install dependencies:
+Install the configured tools, then install the backend and frontend dependencies:
 
 ```shell
 mise install
-mise run install
+uv sync
+pnpm --dir frontend install
 ```
 
 The existing `.env` file is intentionally ignored by Git and is not needed by
@@ -18,8 +19,10 @@ the health-check scaffold.
 
 ## Run locally
 
+Start the API:
+
 ```shell
-mise run dev
+uv run uvicorn api.main:app --reload
 ```
 
 The API is available at <http://127.0.0.1:8000>. Useful endpoints:
@@ -27,8 +30,17 @@ The API is available at <http://127.0.0.1:8000>. Useful endpoints:
 - `GET /health`
 - `GET /docs`
 
+In a second terminal, start the frontend:
+
+```shell
+pnpm --dir frontend dev
+```
+
+The dashboard is available at <http://127.0.0.1:5173>.
+
 ## Test
 
 ```shell
-mise run test
+uv run pytest
+pnpm --dir frontend build
 ```
