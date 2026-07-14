@@ -119,8 +119,12 @@ mise exec -- uv run pytest
 
 ## Demo
 
-Demo scenarios begin by seeding a curated upstream issue into the configured
-fork. Set these values in `.env` before running a scenario:
+The demo uses a repository webhook on a Superset fork. The webhook sends newly
+opened issues through the public Cloudflare URL to the local FastAPI service.
+
+### 1. Configure the environment
+
+Copy `sample.env` to `.env`, then set at least these GitHub values:
 
 ```dotenv
 GITHUB_REPOSITORY=thomasjiangcy/superset
@@ -128,21 +132,111 @@ GITHUB_TOKEN=<fine-grained token with Issues write permission>
 GITHUB_WEBHOOK_SECRET=<high-entropy webhook secret>
 ```
 
-### Scenario 1: investigate an unvalidated bug report
+`GITHUB_REPOSITORY` is the fork that will receive the seeded issue.
+`GITHUB_TOKEN` needs Issues write permission for that repository. Generate a
+webhook secret if needed:
+
+```shell
+openssl rand -hex 32
+```
+
+Store that value as `GITHUB_WEBHOOK_SECRET`. The exact same value must be
+entered in GitHub when registering the webhook. Configure `.env` before
+starting the stack so Compose passes the secret into the application container.
+
+### 2. Start the development stack
+
+```shell
+docker compose up --build -d
+```
+
+Confirm that the application is healthy:
+
+```shell
+curl --fail http://127.0.0.1:8080/api/health
+```
+
+Find the temporary public hostname:
+
+```shell
+docker compose logs tunnel
+```
+
+Look for an `https://<random-name>.trycloudflare.com` URL. The full webhook URL
+is:
+
+```text
+https://<random-name>.trycloudflare.com/api/webhooks/github
+```
+
+### 3. Register the repository webhook
+
+In the fork, open **Settings → Webhooks → Add webhook** and configure:
+
+| GitHub field | Value |
+|---|---|
+| Payload URL | The full `/api/webhooks/github` URL above |
+| Content type | **`application/json`** |
+| Secret | The exact `GITHUB_WEBHOOK_SECRET` value from `.env` |
+| SSL verification | Enable SSL verification |
+| Events | Let me select individual events → **Issues** |
+| Active | Enabled |
+
+Do not select `application/x-www-form-urlencoded`; the receiver intentionally
+accepts JSON webhook bodies only. When the webhook is created, GitHub sends a
+`ping`. In **Recent Deliveries**, the ping should show response status `202`
+with a response body similar to:
+
+```json
+{
+  "delivery_id": "<delivery-guid>",
+  "event": "ping",
+  "action": null,
+  "repository": "owner/repository",
+  "status": "received"
+}
+```
+
+If the first ping used the wrong settings, update the webhook and choose
+**Redeliver** on that delivery. Common responses are:
+
+| Status | Meaning |
+|---:|---|
+| `202` | Signature and payload were accepted |
+| `403` | The signature is missing or the GitHub secret does not match `.env` |
+| `415` | Content type is not `application/json` |
+| `503` | `GITHUB_WEBHOOK_SECRET` was not configured when the app started |
+
+Follow application and tunnel logs during the demo with:
+
+```shell
+docker compose logs --follow app tunnel
+```
+
+Cloudflare Quick Tunnel hostnames are temporary. If the tunnel is recreated,
+update the webhook's Payload URL before testing again.
+
+### 4. Run scenario 1: investigate an unvalidated bug report
 
 This scenario starts with
 [apache/superset#39007](https://github.com/apache/superset/issues/39007), an
 unvalidated Mixed Chart report that does not yet contain enough evidence for a
 maintainer to begin implementation.
 
-Create the issue in the configured fork:
+Optionally preview the exact issue without contacting GitHub:
+
+```shell
+mise exec -- uv run scripts/seed_issues.py mixed-chart-matrixify --dry-run
+```
+
+Create the issue in the configured fork and trigger the webhook:
 
 ```shell
 mise exec -- uv run scripts/seed_issues.py mixed-chart-matrixify
 ```
 
-Once the webhook-driven workflow is implemented and registered, the complete
-demo flow will be:
+The corresponding `issues` delivery should show response status `202`, action
+`opened`, and status `received`. The complete intended scenario is:
 
 1. The seed script creates the issue in the fork.
 2. GitHub sends an `issues` webhook with the `opened` action.
@@ -157,23 +251,11 @@ Issue seeding plus authenticated webhook receipt and parsing are implemented.
 Bug-report classification, workflow routing, and the Devin investigation
 handoff will be added next.
 
-Configure the fork's repository webhook with the public URL above, content type
-`application/json`, the same `GITHUB_WEBHOOK_SECRET`, and the **Issues** event.
-GitHub's registration `ping` and subsequent deliveries are verified using the
-raw request body and `X-Hub-Signature-256`; valid deliveries receive a `202`
-acknowledgement without starting a workflow yet.
-
 The script creates the upstream `validation:required` label if necessary and
 copies the upstream issue title and body exactly. It will not create another
 copy while an exact match remains open. Close the previous demo issue before
 rerunning the scenario to create a fresh issue and emit another `opened`
 webhook.
-
-Preview the exact issue payload without contacting GitHub:
-
-```shell
-mise exec -- uv run scripts/seed_issues.py mixed-chart-matrixify --dry-run
-```
 
 Use `--repo OWNER/REPOSITORY` to override `GITHUB_REPOSITORY`, for example when
 an assessor runs the scenario against their own fork.
