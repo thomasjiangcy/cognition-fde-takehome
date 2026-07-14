@@ -3,7 +3,7 @@ name = "github-devin-automation"
 version = "0.1.0"
 description = "FastAPI service for webhook-driven, scheduled, and manual GitHub-to-Devin automation."
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.14"
 dependencies = [
     "apscheduler>=3.11,<4.0",
     "fastapi>=0.115,<1.0",
@@ -25,7 +25,7 @@ testpaths = ["tests"]
 strict = true
 
 [tool.ruff]
-target-version = "py312"
+target-version = "py314"
 
 [tool.ruff.lint]
 select = ["E4", "E7", "E9", "F", "I", "UP", "B", "SIM", "ASYNC"]

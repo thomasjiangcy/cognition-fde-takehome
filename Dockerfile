@@ -1,9 +1,9 @@
 # syntax=docker/dockerfile:1
 
-FROM ghcr.io/astral-sh/uv:0.9.30 AS uv
+FROM ghcr.io/astral-sh/uv:0.11.28 AS uv
 
 
-FROM python:3.12-alpine AS backend-builder
+FROM python:3.14.6-alpine AS backend-builder
 
 COPY --from=uv /uv /uvx /bin/
 
@@ -13,7 +13,7 @@ COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-dev --no-install-project
 
 
-FROM python:3.12-alpine AS runtime
+FROM python:3.14.6-alpine AS runtime
 
 WORKDIR /app
 
