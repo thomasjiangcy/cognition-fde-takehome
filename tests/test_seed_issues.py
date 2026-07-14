@@ -78,6 +78,10 @@ async def test_seed_creates_missing_label_and_issue() -> None:
         "/repos/thomasjiangcy/superset/issues",
         "/repos/thomasjiangcy/superset/labels/validation:required",
         "/repos/thomasjiangcy/superset/labels",
+        "/repos/thomasjiangcy/superset/labels/validation:validated",
+        "/repos/thomasjiangcy/superset/labels",
+        "/repos/thomasjiangcy/superset/labels/#bug:cant-reproduce",
+        "/repos/thomasjiangcy/superset/labels",
         "/repos/thomasjiangcy/superset/issues",
     ]
 

@@ -127,6 +127,7 @@ class SeedIssue:
     title: str
     body_path: Path
     labels: tuple[SeedLabel, ...]
+    repo_labels: tuple[SeedLabel, ...] = ()
 
     def render_body(self) -> str:
         return self.body_path.read_text(encoding="utf-8").removesuffix("\n")
@@ -142,6 +143,18 @@ SEED_CATALOG: dict[str, SeedIssue] = {
                 name="validation:required",
                 color="D93F0B",
                 description="A committer should validate the issue",
+            ),
+        ),
+        repo_labels=(
+            SeedLabel(
+                name="validation:validated",
+                color="4F9031",
+                description="A committer has validated / submitted the issue or it was reported by multiple users",
+            ),
+            SeedLabel(
+                name="#bug:cant-reproduce",
+                color="ededed",
+                description="Bugs that cannot be reproduced",
             ),
         ),
     ),
@@ -395,7 +408,7 @@ async def seed_issue(
                 issue_url=issue.html_url,
             )
 
-    for label in seed.labels:
+    for label in seed.labels + seed.repo_labels:
         await client.ensure_label(repository, label)
 
     issue = await client.create_issue(
