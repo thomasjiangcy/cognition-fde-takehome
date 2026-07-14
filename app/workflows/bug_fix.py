@@ -90,7 +90,6 @@ class BugFixWorkflow:
             raise ValueError("Bug fix workflow requires a repository")
 
         issue = payload.issue
-        await self._github_client.ensure_label(repository, DEVIN_ASSIGNED_LABEL)
         await self._github_client.add_label(
             repository, issue.number, DEVIN_ASSIGNED_LABEL.name
         )

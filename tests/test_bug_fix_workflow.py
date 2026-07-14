@@ -130,12 +130,8 @@ async def test_bug_fix_workflow_adds_label_and_creates_session() -> None:
 
     def handle_github(request: httpx.Request) -> httpx.Response:
         github_requests.append((request.method, request.url.path))
-        if request.method == "GET" and "/labels/" in request.url.path:
-            return httpx.Response(404, json={"message": "Not Found"})
         if request.method == "POST" and request.url.path.endswith("/issues/42/labels"):
             return httpx.Response(200, json=[{"name": "devin:assigned"}])
-        if request.method == "POST" and request.url.path.endswith("/labels"):
-            return httpx.Response(201, content=request.content)
         return httpx.Response(500)
 
     def handle_devin(request: httpx.Request) -> httpx.Response:
@@ -170,6 +166,5 @@ async def test_bug_fix_workflow_adds_label_and_creates_session() -> None:
         result = await workflow.run(_manual_delivery(_validated_labels()))
 
     assert result.devin_session_id == "devin-fix-42"
-    assert any("/labels/devin:assigned" in path for _, path in github_requests)
-    assert any("/issues/42/labels" in path for _, path in github_requests)
+    assert github_requests == [("POST", "/repos/octocat/superset/issues/42/labels")]
     assert devin_requests == [("POST", "/v3/organizations/org-test/sessions")]
