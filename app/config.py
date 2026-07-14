@@ -1,4 +1,4 @@
-from pydantic import Field
+from pydantic import AnyHttpUrl, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -18,3 +18,15 @@ class DevinSettings(BaseSettings):
 
 def load_devin_settings() -> DevinSettings:
     return DevinSettings()
+
+
+class ObservabilitySettings(BaseSettings):
+    """Optional OTLP destination parsed from the process environment."""
+
+    model_config = SettingsConfigDict(extra="ignore", strict=True)
+
+    otel_exporter_otlp_endpoint: AnyHttpUrl | None = None
+
+
+def load_observability_settings() -> ObservabilitySettings:
+    return ObservabilitySettings()

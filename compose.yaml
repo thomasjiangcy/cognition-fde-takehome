@@ -3,12 +3,29 @@ name: github-devin-automation
 services:
   app:
     build: .
+    depends_on:
+      otel-lgtm:
+        condition: service_healthy
     environment:
       DEVIN_API_KEY: ${DEVIN_API_KEY:-}
       DEVIN_ORG_ID: ${DEVIN_ORG_ID:-}
       GITHUB_WEBHOOK_SECRET: ${GITHUB_WEBHOOK_SECRET:-}
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-lgtm:4318
     ports:
       - "8080:8080"
+    restart: unless-stopped
+
+  otel-lgtm:
+    image: grafana/otel-lgtm:0.29.0
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://localhost:3000/api/health"]
+      interval: 5s
+      timeout: 2s
+      retries: 12
+      start_period: 5s
+    ports:
+      - "3000:3000"
+      - "4318:4318"
     restart: unless-stopped
 
   tunnel:

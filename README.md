@@ -82,7 +82,8 @@ docker rm -f github-devin-automation
 
 ## Run with a public development URL
 
-Docker Compose starts the application and a Cloudflare Quick Tunnel together:
+Docker Compose starts the application, a Cloudflare Quick Tunnel, and a local
+Grafana OpenTelemetry backend together:
 
 ```shell
 docker compose up -d --build
@@ -103,6 +104,19 @@ https://<random-name>.trycloudflare.com/api/webhooks/github
 
 Quick Tunnel hostnames are temporary and intended for development and demos.
 They normally change when the tunnel is recreated.
+
+Grafana is available at <http://127.0.0.1:3000> with the local development
+credentials `admin` / `admin`. The bundled LGTM stack receives application
+traces, HTTP metrics, and logs over OTLP/HTTP.
+
+Compose sets the only required observability variable for the application:
+
+```text
+OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-lgtm:4318
+```
+
+The service name and signal paths are application defaults. When the endpoint
+is absent, such as with a plain `docker run`, OpenTelemetry export is disabled.
 
 Stop both services with:
 
