@@ -1,3 +1,6 @@
+import sys
+from pathlib import Path
+
 import httpx
 import pytest
 from pydantic import SecretStr
@@ -6,6 +9,7 @@ from scripts.seed_issues import (
     SEED_CATALOG,
     CreateIssueRequest,
     CreateLabelRequest,
+    GitHubCliClient,
     GitHubClient,
     Repository,
     seed_issue,
@@ -16,6 +20,7 @@ from scripts.seed_issues import (
 # https://docs.github.com/en/rest/issues/issues#create-an-issue
 # https://docs.github.com/en/rest/issues/labels#get-a-label
 # https://docs.github.com/en/rest/issues/labels#create-a-label
+# https://cli.github.com/manual/gh_api
 
 
 @pytest.mark.anyio
@@ -112,6 +117,42 @@ async def test_seed_reuses_open_issue_with_exact_content() -> None:
     assert result.created is False
     assert result.issue_number == 7
     assert request_count == 1
+
+
+@pytest.mark.anyio
+async def test_seed_uses_gh_api_contract(tmp_path: Path) -> None:
+    executable = tmp_path / "gh"
+    executable.write_text(
+        f"""#!{sys.executable}
+import json
+import sys
+
+arguments = sys.argv[1:]
+method = arguments[arguments.index("--method") + 1]
+path = next(argument for argument in arguments if argument.startswith("repos/"))
+if "--paginate" in arguments:
+    print("[[]]")
+    raise SystemExit(0)
+if method == "GET" and "/labels/" in path:
+    raise SystemExit(1)
+payload = json.load(sys.stdin)
+if path.endswith("/issues"):
+    payload.update({{"number": 3, "html_url": "https://github.com/thomasjiangcy/superset/issues/3"}})
+print(json.dumps(payload))
+""",
+        encoding="utf-8",
+    )
+    executable.chmod(0o700)
+
+    result = await seed_issue(
+        GitHubCliClient(str(executable)),
+        Repository.parse("thomasjiangcy/superset"),
+        SEED_CATALOG["mixed-chart-matrixify"],
+    )
+
+    assert result.created is True
+    assert result.issue_number == 3
+    assert result.issue_url == "https://github.com/thomasjiangcy/superset/issues/3"
 
 
 def test_seed_body_contains_no_seeder_metadata() -> None:

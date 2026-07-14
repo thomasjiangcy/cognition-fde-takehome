@@ -2,15 +2,24 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import shutil
+import sys
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from types import TracebackType
-from typing import Self
+from typing import Protocol, Self
 from urllib.parse import quote
 
 import httpx
-from pydantic import BaseModel, ConfigDict, Field, SecretStr, TypeAdapter
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    SecretStr,
+    TypeAdapter,
+    ValidationError,
+)
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 GITHUB_API_VERSION = "2022-11-28"
@@ -23,11 +32,12 @@ class GitHubSettings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
+        env_ignore_empty=True,
         extra="ignore",
         strict=True,
     )
 
-    github_token: SecretStr = Field(min_length=1)
+    github_token: SecretStr | None = Field(default=None, min_length=1)
 
 
 class SeedTargetSettings(BaseSettings):
@@ -145,6 +155,26 @@ class SeedResult:
     issue_url: str
 
 
+class GitHubAuthenticationError(RuntimeError):
+    """Raised when neither gh nor token authentication is available."""
+
+
+class GitHubIssueClient(Protocol):
+    async def list_issues(self, repository: Repository) -> list[GitHubIssue]: ...
+
+    async def ensure_label(
+        self,
+        repository: Repository,
+        label: SeedLabel,
+    ) -> GitHubLabel: ...
+
+    async def create_issue(
+        self,
+        repository: Repository,
+        request: CreateIssueRequest,
+    ) -> GitHubIssue: ...
+
+
 class GitHubClient:
     """Minimal asynchronous client for the GitHub Issues and Labels APIs."""
 
@@ -233,8 +263,125 @@ class GitHubClient:
         await self._http.aclose()
 
 
+class GitHubCliClient:
+    """GitHub operations executed through an authenticated gh CLI."""
+
+    def __init__(self, executable: str) -> None:
+        self._executable = executable
+
+    async def list_issues(self, repository: Repository) -> list[GitHubIssue]:
+        content = await self._api(
+            "GET",
+            f"repos/{repository.full_name}/issues",
+            fields=("state=open", "per_page=100"),
+            paginate=True,
+        )
+        pages = TypeAdapter(list[list[GitHubIssue]]).validate_json(
+            self._require_content(content),
+            strict=True,
+        )
+        return [issue for page in pages for issue in page]
+
+    async def ensure_label(
+        self,
+        repository: Repository,
+        label: SeedLabel,
+    ) -> GitHubLabel:
+        path = f"repos/{repository.full_name}/labels/{quote(label.name, safe='')}"
+        content = await self._api("GET", path, check=False)
+        if not content:
+            request = CreateLabelRequest(
+                name=label.name,
+                color=label.color,
+                description=label.description,
+            )
+            content = await self._api(
+                "POST",
+                f"repos/{repository.full_name}/labels",
+                request_body=request.model_dump_json().encode(),
+            )
+        return GitHubLabel.model_validate_json(
+            self._require_content(content),
+            strict=True,
+        )
+
+    async def create_issue(
+        self,
+        repository: Repository,
+        request: CreateIssueRequest,
+    ) -> GitHubIssue:
+        content = await self._api(
+            "POST",
+            f"repos/{repository.full_name}/issues",
+            request_body=request.model_dump_json().encode(),
+        )
+        return GitHubIssue.model_validate_json(
+            self._require_content(content),
+            strict=True,
+        )
+
+    @staticmethod
+    def _require_content(content: bytes | None) -> bytes:
+        if content is None:
+            raise GitHubAuthenticationError("gh returned no GitHub API response")
+        return content
+
+    async def _api(
+        self,
+        method: str,
+        path: str,
+        *,
+        fields: tuple[str, ...] = (),
+        request_body: bytes | None = None,
+        paginate: bool = False,
+        check: bool = True,
+    ) -> bytes | None:
+        command = [self._executable, "api", "--method", method]
+        if paginate:
+            command.extend(("--paginate", "--slurp"))
+        command.append(path)
+        for field in fields:
+            command.extend(("--field", field))
+        if request_body is not None:
+            command.extend(("--input", "-"))
+
+        process = await asyncio.create_subprocess_exec(
+            *command,
+            stdin=(asyncio.subprocess.PIPE if request_body is not None else None),
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.DEVNULL,
+        )
+        stdout, _ = await process.communicate(request_body)
+        if process.returncode == 0:
+            return stdout
+        if not check:
+            return None
+        raise GitHubAuthenticationError(
+            "gh could not access the target repository; run `gh auth status` and "
+            "confirm the active account has Issues write permission"
+        )
+
+
+async def authenticated_gh() -> str | None:
+    executable = shutil.which("gh")
+    if executable is None:
+        return None
+    process = await asyncio.create_subprocess_exec(
+        executable,
+        "auth",
+        "status",
+        "--hostname",
+        "github.com",
+        stdout=asyncio.subprocess.DEVNULL,
+        stderr=asyncio.subprocess.DEVNULL,
+    )
+    if await process.wait() != 0:
+        return None
+    return executable
+
+
 async def seed_issue(
-    client: GitHubClient,
+    client: GitHubIssueClient,
     repository: Repository,
     seed: SeedIssue,
 ) -> SeedResult:
@@ -301,7 +448,12 @@ def parse_arguments(argv: Sequence[str] | None = None) -> CliArguments:
     namespace = parser.parse_args(argv, namespace=CliNamespace())
     repository_value = namespace.repository
     if repository_value is None:
-        repository_value = SeedTargetSettings().github_repository
+        try:
+            repository_value = SeedTargetSettings().github_repository
+        except ValidationError:
+            parser.error(
+                "--repo OWNER/REPOSITORY is required when GITHUB_REPOSITORY is not set"
+            )
     try:
         repository = Repository.parse(repository_value)
     except ValueError as error:
@@ -324,8 +476,21 @@ def print_preview(arguments: CliArguments) -> None:
 
 
 async def apply_seed(arguments: CliArguments) -> SeedResult:
-    settings = GitHubSettings()
-    async with GitHubClient(settings.github_token) as client:
+    gh_executable = await authenticated_gh()
+    if gh_executable is not None:
+        return await seed_issue(
+            GitHubCliClient(gh_executable),
+            arguments.repository,
+            arguments.issue,
+        )
+
+    token = GitHubSettings().github_token
+    if token is None:
+        raise GitHubAuthenticationError(
+            "GitHub authentication is required: run `gh auth login` or set "
+            "GITHUB_TOKEN to a token with Issues write permission"
+        )
+    async with GitHubClient(token) as client:
         return await seed_issue(client, arguments.repository, arguments.issue)
 
 
@@ -335,7 +500,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         print_preview(arguments)
         return 0
 
-    result = asyncio.run(apply_seed(arguments))
+    try:
+        result = asyncio.run(apply_seed(arguments))
+    except GitHubAuthenticationError as error:
+        print(f"error: {error}", file=sys.stderr)
+        return 2
     action = "Created" if result.created else "Already present"
     print(f"{action}: {result.issue_url} (issue #{result.issue_number})")
     return 0

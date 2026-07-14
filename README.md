@@ -6,7 +6,7 @@ server-rendered dashboard.
 
 At startup, the application runs a resource initialization hook. Registered
 Devin playbooks are reconciled by unique macro: the initializer creates missing
-playbooks, updates changed playbooks, and leaves matching playbooks untouched.
+playbooks and upserts existing ones to the local definition.
 
 ## Setup
 
@@ -145,22 +145,23 @@ opened issues through the public Cloudflare URL to the local FastAPI service.
 
 ### 1. Configure the environment
 
-Copy `sample.env` to `.env`, then configure all values required by the demo:
+Copy `sample.env` to `.env`, then configure the values required by the demo:
 
 ```dotenv
 DEVIN_ORG_ID=<Devin organization ID beginning with org->
 DEVIN_API_KEY=<Devin API key beginning with cog_>
 GITHUB_REPOSITORY=thomasjiangcy/superset
-GITHUB_TOKEN=<fine-grained token with Issues write permission>
+GITHUB_TOKEN=
 GITHUB_WEBHOOK_SECRET=<high-entropy webhook secret>
 ```
 
 `DEVIN_ORG_ID` and `DEVIN_API_KEY` authorize access to the organization's Devin
 resources. The service user needs `ManageAccountPlaybooks` for startup
 reconciliation and `ManageOrgSessions` for workflow execution.
-`GITHUB_REPOSITORY` is the fork that will receive the seeded issue.
-`GITHUB_TOKEN` needs Issues write permission for that repository. Generate a
-webhook secret if needed:
+`GITHUB_REPOSITORY` is the default fork that receives seeded issues and can be
+overridden with `--repo`. The seeder prefers an authenticated `gh` CLI. If `gh`
+is unavailable or unauthenticated, set `GITHUB_TOKEN` to a fine-grained token
+with Issues write permission. Generate a webhook secret if needed:
 
 ```shell
 openssl rand -hex 32
@@ -255,11 +256,18 @@ Optionally preview the exact issue without contacting GitHub:
 mise exec -- uv run scripts/seed_issues.py mixed-chart-matrixify --dry-run
 ```
 
-Create the issue in the configured fork and trigger the webhook:
+Authenticate the GitHub CLI, then create the issue and trigger the webhook:
 
 ```shell
-mise exec -- uv run scripts/seed_issues.py mixed-chart-matrixify
+gh auth login
+mise exec -- uv run scripts/seed_issues.py mixed-chart-matrixify \
+  --repo thomasjiangcy/superset
 ```
+
+The explicit `--repo OWNER/REPOSITORY` target overrides `GITHUB_REPOSITORY`. When
+`gh` is not installed or authenticated, put a fine-grained token with Issues
+write permission in the uncommitted `.env` file as `GITHUB_TOKEN`; the same
+command then falls back to GitHub's HTTP API.
 
 The corresponding `issues` delivery should show response status `202`, action
 `opened`, and status `received`. The application persists the verified delivery,
@@ -271,9 +279,6 @@ copies the upstream issue title and body exactly. It will not create another
 copy while an exact match remains open. Close the previous demo issue before
 rerunning the scenario to create a fresh issue and emit another `opened`
 webhook.
-
-Use `--repo OWNER/REPOSITORY` to override `GITHUB_REPOSITORY`, for example when
-an assessor runs the scenario against their own fork.
 
 ## Code quality
 
