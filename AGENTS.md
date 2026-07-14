@@ -46,6 +46,9 @@
   exists.
 - Do not make live third-party network calls in the default test suite.
 - Keep tests deterministic. Do not use arbitrary sleeps or depend on test order.
+- Run PostgreSQL integration tests with
+  `uv run pytest -m database tests/integration`; Testcontainers owns the
+  isolated PostgreSQL lifecycle and individual tests must roll back their state.
 - Run opt-in live integration tests with
   `uv run pytest -m live tests/integration`; these use `.env` credentials and
   may create isolated third-party resources that the tests must clean up.

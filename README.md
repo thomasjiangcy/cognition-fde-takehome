@@ -1,13 +1,12 @@
 # GitHub to Devin automation service
 
-A small FastAPI application for webhook-driven, scheduled, and manually
-triggered GitHub-to-Devin workflows. FastAPI serves both the API and a basic
-server-rendered dashboard, while APScheduler provides in-process scheduling.
+A small FastAPI application for webhook-driven and manually triggered
+GitHub-to-Devin workflows. FastAPI serves both the API and a basic
+server-rendered dashboard.
 
-At startup, the application runs a resource initialization hook before starting
-the scheduler. Registered Devin playbooks are reconciled by unique macro: the
-initializer creates missing playbooks, updates changed playbooks, and leaves
-matching playbooks untouched.
+At startup, the application runs a resource initialization hook. Registered
+Devin playbooks are reconciled by unique macro: the initializer creates missing
+playbooks, updates changed playbooks, and leaves matching playbooks untouched.
 
 ## Setup
 
@@ -34,6 +33,7 @@ configured on the repository webhook.
 - `app/webhooks/github` owns GitHub webhook transport, verification, and
   normalized deliveries.
 - `app/workflows` selects and runs zero or more workflows for each delivery.
+- `app/automation` owns generic trigger event and workflow run persistence.
 - `app/devin` owns Devin API clients and managed resources.
 - `playbooks` contains Markdown bodies for application-managed Devin playbooks.
 - `app/initialization.py` is the startup boundary for idempotent Devin resource
@@ -42,8 +42,9 @@ configured on the repository webhook.
 ## Run
 
 Docker Compose is the single interface for running the application. Development
-and production run the same application, LGTM observability, and Cloudflare
-tunnel services; only the application container's source and command differ.
+and production run the same application, PostgreSQL, LGTM observability, and
+Cloudflare tunnel services; only the application container's source and command
+differ.
 
 ### Development
 
@@ -63,8 +64,14 @@ The development stack includes:
 - Application: <http://127.0.0.1:8080>
 - API documentation: <http://127.0.0.1:8080/api/docs>
 - Health check: <http://127.0.0.1:8080/api/health>
+- PostgreSQL on `127.0.0.1:5432`
 - Grafana: <http://127.0.0.1:3000> using `admin` / `admin`
 - A temporary Cloudflare Quick Tunnel
+
+The application runs `alembic upgrade head` before Uvicorn starts. Compose uses
+`automation` for the local database, user, and password. Override
+`DATABASE_URL`, `POSTGRES_DB`, `POSTGRES_USER`, and `POSTGRES_PASSWORD` together
+when using different credentials.
 
 Find the generated public URL in the tunnel logs:
 
@@ -97,8 +104,9 @@ docker compose -f compose.yaml up -d --build
 ```
 
 Production mode uses the source baked into the image and the Dockerfile's
-non-reloading Uvicorn command. It starts the same LGTM and Cloudflare tunnel
-services as development mode, without source mounts or hot reload.
+non-reloading Uvicorn command. It starts the same PostgreSQL, LGTM, and
+Cloudflare tunnel services as development mode, without source mounts or hot
+reload.
 
 Stop production mode with:
 
@@ -113,6 +121,14 @@ application tests:
 
 ```shell
 mise exec -- uv run pytest
+```
+
+PostgreSQL integration tests use Testcontainers to start and remove isolated
+PostgreSQL 18.4 containers. Docker must be available; no Compose service needs
+to be started manually:
+
+```shell
+mise exec -- uv run pytest -m database tests/integration
 ```
 
 Opt-in live integration tests use the configured `.env` credentials and create
@@ -140,9 +156,9 @@ GITHUB_WEBHOOK_SECRET=<high-entropy webhook secret>
 ```
 
 `DEVIN_ORG_ID` and `DEVIN_API_KEY` authorize access to the organization's Devin
-resources. The service user needs the `ManageAccountPlaybooks` permission for
-startup reconciliation. `GITHUB_REPOSITORY` is the fork that will receive the
-seeded issue.
+resources. The service user needs `ManageAccountPlaybooks` for startup
+reconciliation and `ManageOrgSessions` for workflow execution.
+`GITHUB_REPOSITORY` is the fork that will receive the seeded issue.
 `GITHUB_TOKEN` needs Issues write permission for that repository. Generate a
 webhook secret if needed:
 
@@ -246,9 +262,9 @@ mise exec -- uv run scripts/seed_issues.py mixed-chart-matrixify
 ```
 
 The corresponding `issues` delivery should show response status `202`, action
-`opened`, and status `received`. The application verifies and parses the
-delivery, then routes issues containing `### Bug description` to the
-bug-investigation workflow for background execution.
+`opened`, and status `received`. The application persists the verified delivery,
+routes issues containing `### Bug description` to the bug-investigation
+workflow, and starts a Devin session with the managed playbook and issue context.
 
 The script creates the upstream `validation:required` label if necessary and
 copies the upstream issue title and body exactly. It will not create another
