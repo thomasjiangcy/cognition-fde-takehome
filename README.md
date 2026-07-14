@@ -42,52 +42,32 @@ configured on the repository webhook.
 - `app/initialization.py` is the startup boundary for idempotent Devin resource
   setup.
 
-## Run locally
+## Run
+
+Docker Compose is the single interface for running the application. Development
+and production run the same application, LGTM observability, and Cloudflare
+tunnel services; only the application container's source and command differ.
+
+### Development
+
+Start the complete development stack:
 
 ```shell
-uv run uvicorn app.main:app --reload
+docker compose up --build
 ```
 
-The application is available at <http://127.0.0.1:8000>. Useful endpoints:
+Compose automatically applies `compose.override.yaml`, which bind-mounts
+`app/` and `playbooks/` into the container and replaces the production command
+with Uvicorn's reload mode. Python source changes restart the server without an
+image rebuild.
 
-- Dashboard: `GET /`
-- Health check: `GET /api/health`
-- API documentation: `GET /api/docs`
+The development stack includes:
 
-## Run with Docker
-
-Build the image:
-
-```shell
-docker build -t github-devin-automation .
-```
-
-Run the application:
-
-```shell
-docker run -d \
-  --name github-devin-automation \
-  --env-file .env \
-  -p 8080:8080 \
-  github-devin-automation
-```
-
-The application is available at <http://127.0.0.1:8080>.
-
-Stop and remove the container with:
-
-```shell
-docker rm -f github-devin-automation
-```
-
-## Run with a public development URL
-
-Docker Compose starts the application, a Cloudflare Quick Tunnel, and a local
-Grafana OpenTelemetry backend together:
-
-```shell
-docker compose up -d --build
-```
+- Application: <http://127.0.0.1:8080>
+- API documentation: <http://127.0.0.1:8080/api/docs>
+- Health check: <http://127.0.0.1:8080/api/health>
+- Grafana: <http://127.0.0.1:3000> using `admin` / `admin`
+- A temporary Cloudflare Quick Tunnel
 
 Find the generated public URL in the tunnel logs:
 
@@ -105,23 +85,28 @@ https://<random-name>.trycloudflare.com/api/webhooks/github
 Quick Tunnel hostnames are temporary and intended for development and demos.
 They normally change when the tunnel is recreated.
 
-Grafana is available at <http://127.0.0.1:3000> with the local development
-credentials `admin` / `admin`. The bundled LGTM stack receives application
-traces, HTTP metrics, and logs over OTLP/HTTP.
-
-Compose sets the only required observability variable for the application:
-
-```text
-OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-lgtm:4318
-```
-
-The service name and signal paths are application defaults. When the endpoint
-is absent, such as with a plain `docker run`, OpenTelemetry export is disabled.
-
-Stop both services with:
+Stop the development stack with `Ctrl+C`, or from another terminal:
 
 ```shell
 docker compose down
+```
+
+### Production
+
+Run only the production definition, without the development override:
+
+```shell
+docker compose -f compose.yaml up -d --build
+```
+
+Production mode uses the source baked into the image and the Dockerfile's
+non-reloading Uvicorn command. It starts the same LGTM and Cloudflare tunnel
+services as development mode, without source mounts or hot reload.
+
+Stop production mode with:
+
+```shell
+docker compose -f compose.yaml down
 ```
 
 ## Test
